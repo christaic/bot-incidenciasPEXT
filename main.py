@@ -415,14 +415,7 @@ def cargar_cajas_nodos():
     try:
         logger.info("📄 Cargando 'CAJAS_NODOS' desde Google Sheets...")
 
-        # 🧾 Autenticación segura con Google Service Account
-        creds = Credentials.from_service_account_file(
-            "credentials.json",
-            scopes=[
-                "https://www.googleapis.com/auth/spreadsheets",
-                "https://www.googleapis.com/auth/drive"
-            ]
-        )
+        # 🔐 Usa las credenciales globales ya cargadas desde Render (GCP_SA_PATH)
         gc = gspread.authorize(creds)
 
         # 🗂 Abrir el archivo por nombre
@@ -1914,3 +1907,4 @@ if __name__ == "__main__":
     verificar_carpeta_imagenes_inicial()
     cargar_cajas_nodos()
     main()
+
