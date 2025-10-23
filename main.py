@@ -34,16 +34,24 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 # Google Sheets (opcional espejo)
 SPREADSHEET_ID= "1imkrFoVgdzigEewp7St0wSUvnNdqz9BP69dxpCU1ucs"     # ID del spreadsheet
 GOOGLE_IMAGES_FOLDER_ID = "1kI6dCip0ytIOH8jf1QazT3RFjtUvbB87"
-GCP_SA_PATH = os.getenv("GCP_SA_PATH")     # ruta al service account JSON
+GCP_SA_JSON = os.getenv("GCP_SA_PATH")     # ruta al service account JSON
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive.file",  # subir/gestionar archivos creados por la app
     "https://www.googleapis.com/auth/drive"        # (opcional) si quieres buscar/leer en toda la unidad
 ]
 
-# ✅ Cargar credenciales y autorizar gspread
-creds = Credentials.from_service_account_file(GCP_SA_PATH, scopes=SCOPES)
-gc = gspread.authorize(creds)
+
+# Cargar desde variable de entorno (contenido completo del JSON)
+GCP_SA_JSON = os.getenv("GCP_SA_PATH")
+
+if not GCP_SA_JSON:
+    raise ValueError("⚠️ Variable de entorno GCP_SA_PATH vacía o no definida")
+
+# Convierte el texto JSON a diccionario
+service_account_info = json.loads(GCP_SA_JSON)
+creds = Credentials.from_service_account_info(service_account_info, scopes=SCOPES)
+
 
 ORDENES_DF = None  # DataFrame global
 
@@ -1910,3 +1918,4 @@ if __name__ == "__main__":
     verificar_carpeta_imagenes_inicial()
     cargar_cajas_nodos()
     main()
+
