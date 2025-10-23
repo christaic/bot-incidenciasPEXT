@@ -1,0 +1,96 @@
+# =============================
+# ⚙️ Archivos de entorno y credenciales
+# =============================
+.env
+*.env
+credentials.json
+token.json
+client_secret.json
+service_account.json
+google_credentials.json
+
+# =============================
+# 🧠 Archivos de sistema y cache
+# =============================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.log
+*.db
+*.sqlite3
+.DS_Store
+Thumbs.db
+
+# =============================
+# 🧩 Entornos virtuales
+# =============================
+venv/
+.env/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# =============================
+# 📊 Archivos generados por el bot
+# =============================
+*.xlsx
+*.xls
+*.csv
+*.json.backup
+*.tmp
+*.bak
+*.log
+*.txt
+*.zip
+
+# =============================
+# 🧰 IDEs y herramientas
+# =============================
+.vscode/
+.idea/
+*.iml
+*.code-workspace
+
+# =============================
+# 🚀 Despliegue en Render / VPS
+# =============================
+runtime.txt
+.python-version
+# (estos se mantienen, pero puedes comentarlos si Render los necesita)
+# runtime.txt
+# .python-version
+
+# =============================
+# 🧾 Configuraciones locales
+# =============================
+config/
+local_settings.py
+*.key
+*.pem
+
+# =============================
+# 📸 Archivos multimedia temporales
+# =============================
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.mp4
+*.mov
+*.webp
+imagenes/
+fotos/
+tmp_images/
+uploads/
+
+# =============================
+# 🧹 Backups y carpetas del bot
+# =============================
+/__backup__/
+/__temp__/
+/reporte_temp/
+/data_temp/
+/drive_sync/
