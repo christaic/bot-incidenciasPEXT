@@ -37,7 +37,6 @@ GOOGLE_IMAGES_FOLDER_ID = "1kI6dCip0ytIOH8jf1QazT3RFjtUvbB87"
 GCP_SA_JSON = os.getenv("GCP_SA_PATH")     # ruta al service account JSON
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive.file",  # subir/gestionar archivos creados por la app
     "https://www.googleapis.com/auth/drive"        # (opcional) si quieres buscar/leer en toda la unidad
 ]
 
@@ -217,7 +216,6 @@ def ensure_google_folder_imagenes():
     Compatible con unidades compartidas (supportsAllDrives=True).
     """
     try:
-        creds = Credentials.from_service_account_file("credentials.json", scopes=SCOPES)
         service = build("drive", "v3", credentials=creds)
 
         # 1️⃣ Verificar si el ID definido existe y es accesible
@@ -274,7 +272,6 @@ def upload_image_to_google_drive(file_bytes: bytes, filename: str):
     Compatible con unidades compartidas (supportsAllDrives=True).
     """
     try:
-        creds = Credentials.from_service_account_file("credentials.json", scopes=SCOPES)
         service = build("drive", "v3", credentials=creds)
 
         # 🗂 Obtener o crear carpeta IMAGENES
@@ -339,7 +336,6 @@ def cargar_ordenes_trabajo():
     """
     global ORDENES_DF
     try:
-        creds = Credentials.from_service_account_file("credentials.json", scopes=SCOPES)
         gc = gspread.authorize(creds)
 
         # 🔍 Abre el archivo y hoja
@@ -1918,4 +1914,3 @@ if __name__ == "__main__":
     verificar_carpeta_imagenes_inicial()
     cargar_cajas_nodos()
     main()
-
