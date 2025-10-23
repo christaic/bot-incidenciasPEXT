@@ -127,10 +127,6 @@ logger = logging.getLogger(__name__)
 def _gs_connect():
     """Conecta a Google Sheets usando Service Account"""
     try:
-        creds = Credentials.from_service_account_file(
-            "credentials.json",
-            scopes=["https://www.googleapis.com/auth/spreadsheets"]
-        )
         gc = gspread.authorize(creds)
         sheet = gc.open_by_key(SPREADSHEET_ID).sheet1
         return sheet
@@ -1907,4 +1903,3 @@ if __name__ == "__main__":
     verificar_carpeta_imagenes_inicial()
     cargar_cajas_nodos()
     main()
-
