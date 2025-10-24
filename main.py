@@ -1803,6 +1803,13 @@ async def guardar_registro(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # 🚀 Finalizar conversación
         return ConversationHandler.END
 
+    except Exception as e:
+        logger.error(f"❌ Error general en guardar_registro: {e}")
+        await context.bot.send_message(
+            update.effective_chat.id,
+            "⚠️ Ocurrió un error al guardar. Contacta a soporte."
+        )
+        return ConversationHandler.END 
 
 # ================== CANCEL ==================
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
