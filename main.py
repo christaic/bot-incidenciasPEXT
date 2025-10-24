@@ -458,7 +458,7 @@ async def recargar_bases(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         # 📄 Recargar en memoria (solo lectura)
-        cargar_ordenes_trabajo(force=True)
+        cargar_ordenes_trabajo()
         cargar_cajas_nodos()
 
         await context.bot.edit_message_text(
@@ -1966,3 +1966,4 @@ if __name__ == "__main__":
     verificar_carpeta_imagenes_inicial()
     cargar_cajas_nodos()
     main()
+
