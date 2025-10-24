@@ -358,7 +358,6 @@ def cargar_ordenes_trabajo():
         ORDENES_DF = pd.DataFrame()
         return
 
-
 # ============================================================
 # 🔎 BUSCAR DATOS POR TICKET
 # ============================================================
@@ -367,6 +366,7 @@ def buscar_datos_ticket(ticket: str) -> dict | None:
     Busca un ticket en la columna D (COL_3) del DataFrame ORDENES_DF.
     Devuelve datos de la misma fila:
     A → NOMBRE_CLIENTE, B → CUADRILLA, C → DNI, D → TICKET, E → PARTNER.
+    Si no lo encuentra, sugiere usar /recargar.
     """
     global ORDENES_DF
     try:
@@ -378,16 +378,15 @@ def buscar_datos_ticket(ticket: str) -> dict | None:
 
         t = str(ticket).strip().upper()
         df = ORDENES_DF.copy()
-
         # Normaliza
         df["COL_3"] = df["COL_3"].astype(str).str.upper().str.strip()
-
         # Busca ticket
         fila = df[df["COL_3"].str.contains(t, na=False)]
         if fila.empty:
             logger.info(f"🔍 Ticket '{t}' no encontrado.")
             return None
 
+        # ✅ Extraer fila
         row = fila.iloc[0]
         datos = {
             "NOMBRE_CLIENTE": str(row.get("COL_0", "")).strip(),
@@ -442,6 +441,49 @@ def obtener_nodo_por_codigo(codigo: str) -> str:
         return CAJAS_NODOS.get(codigo.strip().upper(), "")
     except Exception:
         return ""
+
+
+# ======================================================
+# ======================================================
+# 🔄 COMANDO /recargar (solo lectura - abierto a todos)
+# ======================================================
+async def recargar_bases(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Permite recargar manualmente las bases (Ordenes de trabajo y Cajas Nodos)
+    desde Google Sheets sin reiniciar el bot.
+    Solo lee los datos más recientes, no escribe nada.
+    """
+    user = update.effective_user
+    msg = await update.message.reply_text("♻️ *Actualizando datos...* ⏳", parse_mode="Markdown")
+
+    try:
+        # 📄 Recargar en memoria (solo lectura)
+        cargar_ordenes_trabajo(force=True)
+        cargar_cajas_nodos()
+
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=msg.message_id,
+            text=(
+                "♻️ *Datos actualizados correctamente.*\n\n"
+                "✍️ Ahora puedes volver a ingresar los datos solicitados."
+            ),
+            parse_mode="Markdown",
+        )
+
+        logger.info(f"✅ /recargar ejecutado (solo lectura) por {user.full_name} ({user.id})")
+
+    except Exception as e:
+        logger.error(f"❌ Error en /recargar: {e}")
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=msg.message_id,
+            text=f"❌ Error al actualizar datos: {e}",
+        )
+
+# =====================================================================
+# =====================================================================
+
 
 # ================== PASOS ===============================================================================
 PASOS = {
@@ -675,7 +717,7 @@ async def manejar_paso(update: Update, context: ContextTypes.DEFAULT_TYPE, paso:
             registro["PARTNER"]        = datos.get("PARTNER", "-")
         else:
             await update.message.reply_text(
-                "⚠️ Ticket no encontrado en las órdenes actuales.\nPor favor vuelve a ingresar un *Ticket válido*:",
+                "⚠️ Ticket no encontrado en las órdenes actuales.\n\n🔄Por favor usa /recargar para actualizar datos.",
                 parse_mode="Markdown"
             )
             return "TICKET"
@@ -696,6 +738,7 @@ async def manejar_paso(update: Update, context: ContextTypes.DEFAULT_TYPE, paso:
         await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
         registro["PASO_ACTUAL"] = "TICKET"
         return "CONFIRMAR"
+
 
     # ─────────────────────────────────────────────────────────────
     # 2) CODIGO_CAJA (texto → buscar NODO + detectar tipo)
@@ -1736,16 +1779,28 @@ async def guardar_registro(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except Exception as e:
                 logger.error(f"❌ Error enviando al grupo {grupo_id}: {e}")
 
-        # 🧹 Limpiar datos del usuario
-        context.user_data.pop("registro", None)
-        return ConversationHandler.END
+        # ==========================================
+        # 🧹 LIMPIEZA DE MEMORIA TRAS REGISTRO EXITOSO
+        # ==========================================
+        try:
 
-    except Exception as e:
-        logger.error(f"❌ Error general en guardar_registro: {e}")
-        await context.bot.send_message(
-            update.effective_chat.id,
-            "⚠️ Ocurrió un error al guardar. Contacta a soporte."
-        )
+            # 🔄 Liberar cualquier caché local o variable pesada
+            for clave in ["FOTO_CAJA", "FOTO_CAJA_ABIERTA", "FOTO_MEDICION"]:
+                if clave in registro:
+                    registro[clave] = None
+
+            # 🧹 Borrar completamente el diccionario del usuario
+            context.user_data.pop("registro", None)
+
+            # 🧽 Forzar liberación de memoria
+            import gc
+            gc.collect()
+
+            logger.info("🧠 Memoria liberada tras registro exitoso en Render.")
+        except Exception as e:
+            logger.warning(f"⚠️ Error al limpiar memoria tras registro: {e}")
+
+        # 🚀 Finalizar conversación
         return ConversationHandler.END
 
 
@@ -1879,6 +1934,7 @@ def main():
     # 🔁 JOBS Y HANDLERS EXTRA
     # ==========================
     app.add_handler(conv_handler)
+    app.add_handler(CommandHandler("recargar", recargar_bases))
 
     # ==========================
     # 🚀 INICIO DEL BOT
