@@ -10,6 +10,7 @@ pytz==2024.1
 python-dotenv==1.0.1
 aiofiles==24.1.0
 tqdm==4.66.4
+pytz==2024.1
 
 # ☁️ Google API / Drive / Sheets
 google-api-python-client==2.142.0
@@ -27,3 +28,4 @@ apscheduler==3.10.4
 
 # 🚀 Despliegue en VPS / Render
 gunicorn==23.0.0
+
