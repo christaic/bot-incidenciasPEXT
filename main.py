@@ -656,7 +656,7 @@ async def manejar_paso(update: Update, context: ContextTypes.DEFAULT_TYPE, paso:
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
         registro["PASO_ACTUAL"] = "NOMBRE_CLIENTE"
-        return "CONFIRMAR
+        return "CONFIRMAR"
 
     # ─────────────────────────────────────────────────────────────
     # 4️⃣ PARTNER
@@ -1926,3 +1926,4 @@ if __name__ == "__main__":
     verificar_carpeta_imagenes_inicial()
     cargar_cajas_nodos()
     main()
+
