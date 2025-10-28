@@ -52,8 +52,6 @@ service_account_info = json.loads(GCP_SA_JSON)
 creds = Credentials.from_service_account_info(service_account_info, scopes=SCOPES)
 
 
-ORDENES_DF = None  # DataFrame global
-
 # 🌍 API Key de Google Maps
 GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
 
@@ -71,6 +69,7 @@ OBS_OPCIONES = {
         "CTO sin potencia",
         "CTO con potencia degradada",
         "CTO Hurtada",
+        "Trabajo en Conjunto",
         "CTO sin facilidades",
         "CTO con puertos degradados",
         "CTO con puertos sin potencia",
@@ -322,88 +321,6 @@ def verificar_carpeta_imagenes_inicial():
         logger.error(f"💥 Error al verificar carpeta IMAGENES: {e}")
 
 
-# ============================================================
-# 📄 CARGAR ORDENES DE TRABAJO DESDE GOOGLE SHEETS
-# ============================================================
-def cargar_ordenes_trabajo():
-    """
-    Lee la pestaña 'DatosparaVisitatcnica' del archivo 'Ordenes de trabajo'
-    y guarda los datos en un DataFrame global (ORDENES_DF).
-    """
-    global ORDENES_DF
-    try:
-        gc = gspread.authorize(creds)
-
-        # 🔍 Abre el archivo y hoja
-        sh = gc.open("Ordenes de trabajo")
-        ws = sh.worksheet("DatosparaVisitatcnica")
-
-        # 🔢 Obtiene todos los valores
-        values = ws.get_all_values()
-        if not values or len(values) < 3:
-            logger.warning("⚠️ 'Ordenes de trabajo' está vacío o mal formateado.")
-            ORDENES_DF = pd.DataFrame()
-            return
-
-        # 🧹 Omite las 2 primeras filas (títulos innecesarios)
-        headers = [f"COL_{i}" for i in range(len(values[2]))]  # genera encabezados COL_0...COL_n
-        data = values[2:]  # a partir de la tercera fila
-
-        # 🧾 Crea DataFrame
-        ORDENES_DF = pd.DataFrame(data, columns=headers)
-        logger.info(f"✅ Cargadas {len(ORDENES_DF)} filas desde 'Ordenes de trabajo'.")
-
-    except Exception as e:
-        logger.error(f"❌ Error cargando 'Ordenes de trabajo' desde Google Sheets: {e}")
-        ORDENES_DF = pd.DataFrame()
-        return
-
-# ============================================================
-# 🔎 BUSCAR DATOS POR TICKET
-# ============================================================
-def buscar_datos_ticket(ticket: str) -> dict | None:
-    """
-    Busca un ticket en la columna D (COL_3) del DataFrame ORDENES_DF.
-    Devuelve datos de la misma fila:
-    A → NOMBRE_CLIENTE, B → CUADRILLA, C → DNI, D → TICKET, E → PARTNER.
-    Si no lo encuentra, sugiere usar /recargar.
-    """
-    global ORDENES_DF
-    try:
-        if ORDENES_DF is None or ORDENES_DF.empty:
-            cargar_ordenes_trabajo()
-        if ORDENES_DF is None or ORDENES_DF.empty:
-            logger.warning("⚠️ ORDENES_DF vacío, no se puede buscar ticket.")
-            return None
-
-        t = str(ticket).strip().upper()
-        df = ORDENES_DF.copy()
-        # Normaliza
-        df["COL_3"] = df["COL_3"].astype(str).str.upper().str.strip()
-        # Busca ticket
-        fila = df[df["COL_3"].str.contains(t, na=False)]
-        if fila.empty:
-            logger.info(f"🔍 Ticket '{t}' no encontrado.")
-            return None
-
-        # ✅ Extraer fila
-        row = fila.iloc[0]
-        datos = {
-            "NOMBRE_CLIENTE": str(row.get("COL_0", "")).strip(),
-            "CUADRILLA": str(row.get("COL_1", "")).strip(),
-            "DNI": str(row.get("COL_2", "")).strip(),
-            "TICKET": str(row.get("COL_3", "")).strip(),
-            "PARTNER": str(row.get("COL_4", "")).strip(),
-        }
-
-        logger.info(f"✅ Ticket '{t}' encontrado: {datos}")
-        return datos
-
-    except Exception as e:
-        logger.error(f"❌ Error buscando ticket '{ticket}': {e}")
-        return None
-
-
 def cargar_cajas_nodos():
     """Lee el archivo CAJAS_NODOS desde Google Sheets y carga los códigos y nodos."""
     global CAJAS_NODOS
@@ -443,54 +360,32 @@ def obtener_nodo_por_codigo(codigo: str) -> str:
         return ""
 
 
-# ======================================================
-# ======================================================
-# 🔄 COMANDO /recargar (solo lectura - abierto a todos)
-# ======================================================
-async def recargar_bases(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Permite recargar manualmente las bases (Ordenes de trabajo y Cajas Nodos)
-    desde Google Sheets sin reiniciar el bot.
-    Solo lee los datos más recientes, no escribe nada.
-    """
-    user = update.effective_user
-    msg = await update.message.reply_text("♻️ *Actualizando datos...* ⏳", parse_mode="Markdown")
-
-    try:
-        # 📄 Recargar en memoria (solo lectura)
-        cargar_ordenes_trabajo()
-        cargar_cajas_nodos()
-
-        await context.bot.edit_message_text(
-            chat_id=update.effective_chat.id,
-            message_id=msg.message_id,
-            text=(
-                "♻️ *Datos actualizados correctamente.*\n\n"
-                "✍️ Ahora puedes volver a ingresar los datos solicitados."
-            ),
-            parse_mode="Markdown",
-        )
-
-        logger.info(f"✅ /recargar ejecutado (solo lectura) por {user.full_name} ({user.id})")
-
-    except Exception as e:
-        logger.error(f"❌ Error en /recargar: {e}")
-        await context.bot.edit_message_text(
-            chat_id=update.effective_chat.id,
-            message_id=msg.message_id,
-            text=f"❌ Error al actualizar datos: {e}",
-        )
-
-# =====================================================================
-# =====================================================================
-
-
 # ================== PASOS ===============================================================================
 PASOS = {
     "TICKET": {
         "tipo": "texto",
         "mensaje": "🎫 Ingrese el número de *TICKET* a registrar:",
         "siguiente": "CODIGO_CAJA",
+    },
+    "DNI": {
+        "tipo": "texto",
+        "mensaje": "🪪 Ingrese el *DNI del cliente*: ",
+        "siguiente": "NOMBRE_CLIENTE",
+    },
+    "NOMBRE_CLIENTE": {
+        "tipo": "texto",
+        "mensaje": "👤 Ingrese el *nombre del cliente*: ",
+        "siguiente": "CODIGO_CAJA",
+    },
+    "PARTNER": {
+        "tipo": "texto",
+        "mensaje": "🏢 Ingrese el nombre del *Partner*:",
+        "siguiente": "CUADRILLA",
+    },
+    "CUADRILLA": {
+        "tipo": "texto",
+        "mensaje": "👷 Ingrese el *nombre o código de cuadrilla*: ",
+        "siguiente": "DNI",
     },
     "CODIGO_CAJA": {
         "tipo": "texto",
@@ -532,8 +427,10 @@ PASOS_LISTA = list(PASOS.keys())
 
 ETIQUETAS = {
     "TICKET": "🎫 Ticket",
-    "DNI": "🪪 DNI",
+    "DNI": "🪪 DNI Cliente",
     "NOMBRE_CLIENTE": "👤 Cliente",
+    "PARTNER": "🏢 Partner",
+    "CUADRILLA": "👷 Cuadrilla",
     "CODIGO_CAJA": "🏷 Código CTO/NAP/FAT",
     "UBICACION_CTO": "📍 Ubicación CTO/NAP/FAT",
     "FOTO_CAJA": "📸 Foto CTO/NAP/FAT (Exterior)",
@@ -696,49 +593,114 @@ async def manejar_paso(update: Update, context: ContextTypes.DEFAULT_TYPE, paso:
             reg["DESDE_RESUMEN"] = False         # ← reset inmediato para NO disparar resúmenes fuera de lugar
 
     # ─────────────────────────────────────────────────────────────
-    # 1) TICKET (texto)
+    # 1️⃣ TICKET (texto)
     # ─────────────────────────────────────────────────────────────
     if paso == "TICKET":
         if not update.message or not update.message.text:
             await update.message.reply_text("⚠️ Debes enviar un número de ticket válido.")
             return paso
 
-        ticket = update.message.text.strip().upper()
-        registro["TICKET"] = ticket
+        registro["TICKET"] = update.message.text.strip().upper()
 
-        _marcar_origen_resumen(registro)
-
-        # Buscar datos del ticket
-        datos = buscar_datos_ticket(ticket)
-        if datos:
-            registro["NOMBRE_CLIENTE"] = datos.get("NOMBRE_CLIENTE", "-")
-            registro["DNI"]            = datos.get("DNI", "-")
-            registro["CUADRILLA"]      = datos.get("CUADRILLA", "-")
-            registro["PARTNER"]        = datos.get("PARTNER", "-")
-        else:
-            await update.message.reply_text(
-                "⚠️ Ticket no encontrado en las órdenes actuales.\n\n🔄Por favor usa /recargar para actualizar datos.",
-                parse_mode="Markdown"
-            )
-            return "TICKET"
-
-        # Mostrar confirmación con botoneras
-        msg = (
-            f"✅ Datos encontrados para Ticket {ticket}:\n\n"
-            f"👤 Cliente: {registro.get('NOMBRE_CLIENTE', '-')}\n"
-            f"🪪 DNI: {registro.get('DNI', '-')}\n"
-            f"👷 Cuadrilla: {registro.get('CUADRILLA', '-')}\n"
-            f"🏢 Partner: {registro.get('PARTNER', '-')}\n\n"
-            f"¿Es correcto el *Ticket* ingresado?"
-        )
         keyboard = [[
             InlineKeyboardButton("✅ Confirmar", callback_data="CONFIRMAR_TICKET"),
             InlineKeyboardButton("✏️ Corregir",  callback_data="CORREGIR_TICKET"),
         ]]
-        await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
+        await update.message.reply_text(
+            f"🎫 *Ticket ingresado:* `{registro['TICKET']}`\n\n¿Deseas confirmar o corregir?",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
         registro["PASO_ACTUAL"] = "TICKET"
         return "CONFIRMAR"
 
+    # ─────────────────────────────────────────────────────────────
+    # 2️⃣ DNI DEL CLIENTE
+    # ─────────────────────────────────────────────────────────────
+    if paso == "DNI":
+        if not update.message or not update.message.text:
+            await update.message.reply_text("⚠️ Debes enviar un número de DNI válido.")
+            return paso
+
+        registro["DNI"] = update.message.text.strip().upper()
+
+        keyboard = [[
+            InlineKeyboardButton("✅ Confirmar", callback_data="CONFIRMAR_DNI"),
+            InlineKeyboardButton("✏️ Corregir",  callback_data="CORREGIR_DNI"),
+        ]]
+        await update.message.reply_text(
+            f"🪪 *DNI del cliente:* `{registro['DNI']}`\n\n¿Deseas confirmar o corregir?",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        registro["PASO_ACTUAL"] = "DNI"
+        return "CONFIRMAR"
+
+    # ─────────────────────────────────────────────────────────────
+    # 3️⃣ NOMBRE DEL CLIENTE
+    # ─────────────────────────────────────────────────────────────
+    if paso == "NOMBRE_CLIENTE":
+        if not update.message or not update.message.text:
+            await update.message.reply_text("⚠️ Debes ingresar el nombre del cliente.")
+            return paso
+
+        registro["NOMBRE_CLIENTE"] = update.message.text.strip().upper()
+
+        keyboard = [[
+            InlineKeyboardButton("✅ Confirmar", callback_data="CONFIRMAR_NOMBRE_CLIENTE"),
+            InlineKeyboardButton("✏️ Corregir",  callback_data="CORREGIR_NOMBRE_CLIENTE"),
+        ]]
+        await update.message.reply_text(
+            f"👤 *Cliente:* {registro['NOMBRE_CLIENTE']}\n\n¿Deseas confirmar o corregir?",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        registro["PASO_ACTUAL"] = "NOMBRE_CLIENTE"
+        return "CONFIRMAR
+
+    # ─────────────────────────────────────────────────────────────
+    # 4️⃣ PARTNER
+    # ─────────────────────────────────────────────────────────────
+    if paso == "PARTNER":
+        if not update.message or not update.message.text:
+            await update.message.reply_text("⚠️ Debes ingresar el Partner o contratista.")
+            return paso
+
+        registro["PARTNER"] = update.message.text.strip().upper()
+
+        keyboard = [[
+            InlineKeyboardButton("✅ Confirmar", callback_data="CONFIRMAR_PARTNER"),
+            InlineKeyboardButton("✏️ Corregir",  callback_data="CORREGIR_PARTNER"),
+        ]]
+        await update.message.reply_text(
+            f"🏢 *Partner:* {registro['PARTNER']}\n\n¿Deseas confirmar o corregir?",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        registro["PASO_ACTUAL"] = "PARTNER"
+        return "CONFIRMAR"
+
+    # ─────────────────────────────────────────────────────────────
+    # 5️⃣ CUADRILLA
+    # ─────────────────────────────────────────────────────────────
+    if paso == "CUADRILLA":
+        if not update.message or not update.message.text:
+            await update.message.reply_text("⚠️ Debes ingresar el nombre o código de cuadrilla.")
+            return paso
+
+        registro["CUADRILLA"] = update.message.text.strip().upper()
+
+        keyboard = [[
+            InlineKeyboardButton("✅ Confirmar", callback_data="CONFIRMAR_CUADRILLA"),
+            InlineKeyboardButton("✏️ Corregir",  callback_data="CORREGIR_CUADRILLA"),
+        ]]
+        await update.message.reply_text(
+            f"👷 *Cuadrilla:* {registro['CUADRILLA']}\n\n¿Deseas confirmar o corregir?",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        registro["PASO_ACTUAL"] = "CUADRILLA"
+        return "CONFIRMAR"
 
     # ─────────────────────────────────────────────────────────────
     # 2) CODIGO_CAJA (texto → buscar NODO + detectar tipo)
@@ -1941,7 +1903,6 @@ def main():
     # 🔁 JOBS Y HANDLERS EXTRA
     # ==========================
     app.add_handler(conv_handler)
-    app.add_handler(CommandHandler("recargar", recargar_bases))
 
     # ==========================
     # 🚀 INICIO DEL BOT
@@ -1962,8 +1923,6 @@ def main():
 # 🔎 CARGAS INICIALES
 # ==============================
 if __name__ == "__main__":
-    cargar_ordenes_trabajo()
     verificar_carpeta_imagenes_inicial()
     cargar_cajas_nodos()
     main()
-
