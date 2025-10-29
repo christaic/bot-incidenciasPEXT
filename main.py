@@ -970,6 +970,39 @@ async def manejar_confirmar_callback(update: Update, context: ContextTypes.DEFAU
         return "RESUMEN_FINAL"
 
     # ============================================================
+    # 🟢 1.5) FLUJO MANUAL PARA CAMPOS BÁSICOS (TICKET, DNI, CLIENTE, PARTNER, CUADRILLA)
+    # ============================================================
+    if paso in ["TICKET", "DNI", "NOMBRE_CLIENTE", "PARTNER", "CUADRILLA"]:
+        try:
+            # 🧹 Limpia el mensaje de botones
+            await query.edit_message_text(f"✅ {paso.replace('_',' ')} confirmado correctamente.", parse_mode="Markdown")
+        except Exception:
+            pass
+
+        # Avanza al siguiente paso
+        siguiente_paso = {
+            "TICKET": "DNI",
+            "DNI": "NOMBRE_CLIENTE",
+            "NOMBRE_CLIENTE": "PARTNER",
+            "PARTNER": "CUADRILLA",
+            "CUADRILLA": "CODIGO_CAJA"
+        }.get(paso)
+
+        if siguiente_paso:
+            mensajes = {
+                "DNI": "🪪 Ingrese ahora el *DNI del cliente:*",
+                "NOMBRE_CLIENTE": "👤 Ingrese el *Nombre del Cliente:*",
+                "PARTNER": "🏢 Ingrese el *Partner o contratista:*",
+                "CUADRILLA": "👷 Ingrese el *Nombre o código de Cuadrilla:*",
+                "CODIGO_CAJA": "🏷 Ingrese el *Código de CTO/NAP/FAT:*"
+            }
+            texto = mensajes.get(siguiente_paso, f"➡️ Continúa con *{siguiente_paso.replace('_',' ')}*")
+            await context.bot.send_message(chat_id=chat_id, text=texto, parse_mode="Markdown")
+            registro["PASO_ACTUAL"] = siguiente_paso
+            return siguiente_paso
+
+
+    # ============================================================
     # 🟡 2) FLUJO REGULAR (captura normal de datos)
     # ============================================================
     tipo = PASOS.get(paso, {}).get("tipo")
@@ -1841,6 +1874,25 @@ def main():
             "TICKET": [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, lambda u, c: manejar_paso(u, c, "TICKET")),
             ],
+            # ====== PASO 2: DNI DEL CLIENTE ======
+            "DNI": [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, lambda u, c: manejar_paso(u, c, "DNI")),
+            ],
+
+            # ====== PASO 3: NOMBRE DEL CLIENTE ======
+            "NOMBRE_CLIENTE": [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, lambda u, c: manejar_paso(u, c, "NOMBRE_CLIENTE")),
+            ],
+
+            # ====== PASO 4: PARTNER ======
+            "PARTNER": [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, lambda u, c: manejar_paso(u, c, "PARTNER")),
+            ],
+
+            # ====== PASO 5: CUADRILLA ======
+            "CUADRILLA": [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, lambda u, c: manejar_paso(u, c, "CUADRILLA")),
+            ],
 
             # ====== PASO 2: CÓDIGO CTO/NAP/FAT ======
             "CODIGO_CAJA": [
@@ -1926,4 +1978,3 @@ if __name__ == "__main__":
     verificar_carpeta_imagenes_inicial()
     cargar_cajas_nodos()
     main()
-
