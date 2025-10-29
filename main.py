@@ -663,7 +663,7 @@ async def manejar_paso(update: Update, context: ContextTypes.DEFAULT_TYPE, paso:
     # ─────────────────────────────────────────────────────────────
     if paso == "PARTNER":
         if not update.message or not update.message.text:
-            await update.message.reply_text("⚠️ Debes ingresar el Partner o contratista.")
+            await update.message.reply_text("⚠️ Debes ingresar el nombre del Partner")
             return paso
 
         registro["PARTNER"] = update.message.text.strip().upper()
@@ -992,8 +992,8 @@ async def manejar_confirmar_callback(update: Update, context: ContextTypes.DEFAU
             mensajes = {
                 "DNI": "🪪 Ingrese ahora el *DNI del cliente:*",
                 "NOMBRE_CLIENTE": "👤 Ingrese el *Nombre del Cliente:*",
-                "PARTNER": "🏢 Ingrese el *Partner o contratista:*",
-                "CUADRILLA": "👷 Ingrese el *Nombre o código de Cuadrilla:*",
+                "PARTNER": "🏢 Ingrese el *Partner:*",
+                "CUADRILLA": "👷 Ingresa tu *nomenclatura junto al nombre de tu Cuadrilla:*",
                 "CODIGO_CAJA": "🏷 Ingrese el *Código de CTO/NAP/FAT:*"
             }
             texto = mensajes.get(siguiente_paso, f"➡️ Continúa con *{siguiente_paso.replace('_',' ')}*")
@@ -1978,3 +1978,4 @@ if __name__ == "__main__":
     verificar_carpeta_imagenes_inicial()
     cargar_cajas_nodos()
     main()
+
