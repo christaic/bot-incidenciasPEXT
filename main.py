@@ -69,8 +69,7 @@ OBS_OPCIONES = {
         "CTO sin potencia",
         "CTO con potencia degradada",
         "CTO Hurtada",
-        "Trabajo en Conjunto",
-        "CTO sin facilidades",
+        "Trabajo en Conjunto", 
         "CTO con puertos degradados",
         "CTO con puertos sin potencia",
         "CTO sin tapa",
@@ -93,7 +92,7 @@ OBS_OPCIONES = {
     "FAT": [
         "FAT sin potencia",
         "FAT con potencia degradada",
-        "FAT sin facilidades",
+        "Trabajo en Conjunto",
         "FAT con puertos degradados",
         "FAT con puertos sin potencia",
         "FAT con intermitencia",
@@ -1978,4 +1977,5 @@ if __name__ == "__main__":
     verificar_carpeta_imagenes_inicial()
     cargar_cajas_nodos()
     main()
+
 
