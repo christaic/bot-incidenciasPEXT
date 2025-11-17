@@ -68,34 +68,27 @@ OBS_OPCIONES = {
     "CTO": [
         "CTO sin potencia",
         "CTO con potencia degradada",
-        "CTO Hurtada",
-        "Trabajo en Conjunto", 
-        "CTO con puertos degradados",
+        "CTO hurtada",
         "CTO con puertos sin potencia",
         "CTO sin tapa",
-        "Prevencion de CTO",
-        "CTO - Habilitacion de puertos",
         "CTO con intermitencia",
         "CTO con conector mecanico",
-        "Reposición de CTO",
+        "Trabajo en Conjunto", 
     ],
     "NAP": [
         "NAP sin potencia",
         "NAP con potencia degradada",
-        "NAP con puertos degradados",
         "NAP con puertos sin potencia",
         "NAP con rotulo equivocado",
-        "NAP sin facilidades",
-        "Prevencion de NAP",
         "NAP con intermitencia",
+        "Trabajo en Conjunto",
     ],
     "FAT": [
         "FAT sin potencia",
         "FAT con potencia degradada",
-        "Trabajo en Conjunto",
-        "FAT con puertos degradados",
         "FAT con puertos sin potencia",
         "FAT con intermitencia",
+        "Trabajo en Conjunto",
     ],
 }
 
@@ -1977,5 +1970,6 @@ if __name__ == "__main__":
     verificar_carpeta_imagenes_inicial()
     cargar_cajas_nodos()
     main()
+
 
 
