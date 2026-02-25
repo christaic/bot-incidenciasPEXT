@@ -75,7 +75,8 @@ OBS_OPCIONES = {
         "CTO con intermitencia",
         "CTO con conector mecanico",
         "CTO con degradación en OLT",
-        "Trabajo en Conjunto", 
+        "Trabajo en Conjunto",
+        "Trabajo en Conjunto - Municipal",
     ],
     "NAP": [
         "NAP sin potencia",
@@ -95,6 +96,7 @@ OBS_OPCIONES = {
         "FAT con intermitencia",
         "FAT con degradación en OLT",
         "Trabajo en Conjunto",
+        "Trabajo en Conjunto - Municipal",
     ],
 }
 
@@ -1976,6 +1978,7 @@ if __name__ == "__main__":
     verificar_carpeta_imagenes_inicial()
     cargar_cajas_nodos()
     main()
+
 
 
 
