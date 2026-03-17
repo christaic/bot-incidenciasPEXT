@@ -59,9 +59,9 @@ CARPETA_BASE = "REPORTE_INCIDENCIAS"
 
 SHEET_NAME = "Hoja1"
 ENCABEZADOS = [
-    "USER_ID", "FECHA", "HORA", "PARTNER", "CUADRILLA", "TICKET", "DNI", "NOMBRE_CLIENTE",
+    "USER_ID", "FECHA", "HORA", "PARTNER", "TIPO_CUADRILLA", "CUADRILLA", "TICKET", "DNI", "NOMBRE_CLIENTE",
     "NODO", "CODIGO_CAJA", "FOTO_CAJA", "FOTO_CAJA_ABIERTA", "FOTO_MEDICION", "LAT_CAJA", "LNG_CAJA",
-    "DEPARTAMENTO", "PROVINCIA", "DISTRITO", "OBS"
+    "DEPARTAMENTO", "PROVINCIA", "DISTRITO", "OBS", "PUERTO_REPORTADO", "FOTO_PUERTO"
 ]
 
 OBS_OPCIONES = {
@@ -79,10 +79,7 @@ OBS_OPCIONES = {
         "Trabajo en Conjunto - Municipal",
     ],
     "NAP": [
-        "NAP sin potencia",
-        "NAP con potencia degradada",
-        "NAP con puertos degradados",
-        "NAP con puertos sin potencia",
+
         "NAP con rotulo equivocado",
         "NAP con intermitencia",
         "NAP con degradación en OLT",
@@ -99,6 +96,14 @@ OBS_OPCIONES = {
         "Trabajo en Conjunto - Municipal",
     ],
 }
+
+
+OBS_REQUIERE_PUERTO = [
+    "CTO sin potencia", "CTO con potencia degradada", "CTO con puertos degradados", "CTO con puertos sin potencia",
+    "NAP sin potencia", "NAP con potencia degradada", "NAP con puertos degradados", "NAP con puertos sin potencia",
+    "FAT sin potencia", "FAT con potencia degradada", "FAT con puertos degradados", "FAT con puertos sin potencia"
+]
+
 
 def _detectar_tipo_por_codigo(codigo: str) -> str | None:
     c = (codigo or "").upper()
@@ -382,6 +387,13 @@ PASOS = {
         "mensaje": "🏢 Ingrese el nombre del *Partner*:",
         "siguiente": "CUADRILLA",
     },
+
+    "TIPO_CUADRILLA": {
+        "tipo": "menu",
+        "mensaje": "🛠 Selecciona el *Tipo de Cuadrilla*:",
+        "siguiente": "CUADRILLA",
+    },
+
     "CUADRILLA": {
         "tipo": "texto",
         "mensaje": "👷 Ingrese el *nombre o código de cuadrilla*: ",
@@ -418,6 +430,17 @@ PASOS = {
         "tipo": "menu",
         "mensaje": "🧭 Selecciona el tipo de observación en CTO / NAP / FAT:",
         "instruccion": "📋 Usa el menú para elegir el tipo de observación.",
+        "siguiente": "DINAMICO",
+    },
+
+    "PUERTO_REPORTADO": {
+        "tipo": "texto",
+        "mensaje": "🔌 Ingresa el *número del puerto* a reportar (del 1 al 17):",
+        "siguiente": "FOTO_PUERTO",
+    },
+    "FOTO_PUERTO": {
+        "tipo": "foto",
+        "mensaje": "📸 Envía *foto del puerto* en mención:",
         "siguiente": "RESUMEN_FINAL",
     }
 }
@@ -429,6 +452,7 @@ ETIQUETAS = {
     "TICKET": "🎫 Ticket",
     "DNI": "🪪 DNI Cliente",
     "NOMBRE_CLIENTE": "👤 Cliente",
+    "TIPO_CUADRILLA": "🛠 Tipo de Cuadrilla",
     "PARTNER": "🏢 Partner",
     "CUADRILLA": "👷 Cuadrilla",
     "CODIGO_CAJA": "🏷 Código CTO/NAP/FAT",
@@ -436,7 +460,9 @@ ETIQUETAS = {
     "FOTO_CAJA": "📸 Foto CTO/NAP/FAT (Exterior)",
     "FOTO_CAJA_ABIERTA": "📦 Foto de CTO/NAP/FAT (Interior)",
     "FOTO_MEDICION": "📏 Foto de medición óptica (dBm)",
-    "OBS": "📝 Observaciones"
+    "OBS": "📝 Observaciones",
+    "PUERTO_REPORTADO": "🔌 Puerto Reportado",
+    "FOTO_PUERTO": "📸 Foto del Puerto",
 }
 
 
@@ -681,6 +707,25 @@ async def manejar_paso(update: Update, context: ContextTypes.DEFAULT_TYPE, paso:
         return "CONFIRMAR"
 
     # ─────────────────────────────────────────────────────────────
+    # 🌟 NUEVO: TIPO DE CUADRILLA (Selección por Menú)
+    # ─────────────────────────────────────────────────────────────
+    if paso == "TIPO_CUADRILLA":
+        # Como es un menú, si el usuario escribe texto por error, le recordamos usar los botones
+        keyboard = [
+            [InlineKeyboardButton("🏢 Averias Lima", callback_data="TC_Averias Lima")],
+            [InlineKeyboardButton("🏢 Averias Provincia", callback_data="TC_Averias Provincia")],
+            [InlineKeyboardButton("🛠 Postventa Lima", callback_data="TC_Postventa Lima")],
+            [InlineKeyboardButton("🛠 Postventa Provincia", callback_data="TC_Postventa Provincia")]
+        ]
+        await update.message.reply_text(
+            "🛠 *Selecciona el Tipo de Cuadrilla:*",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode="Markdown"
+        )
+        return "TIPO_CUADRILLA"
+
+
+    # ─────────────────────────────────────────────────────────────
     # 5️⃣ CUADRILLA
     # ─────────────────────────────────────────────────────────────
     if paso == "CUADRILLA":
@@ -896,11 +941,94 @@ async def manejar_paso(update: Update, context: ContextTypes.DEFAULT_TYPE, paso:
 
         registro["PASO_ACTUAL"] = paso
         return "CONFIRMAR"
+    
+    # ─────────────────────────────────────────────────────────────
+    # 🌟 NUEVO: PUERTO REPORTADO (Validación 1 al 17)
+    # ─────────────────────────────────────────────────────────────
+    if paso == "PUERTO_REPORTADO":
+        if not update.message or not update.message.text:
+            await update.message.reply_text("⚠️ Debes enviar un número válido.")
+            return paso
+
+        puerto_str = update.message.text.strip()
+        
+        # Validar que sea un número entre 1 y 17
+        if not puerto_str.isdigit() or not (1 <= int(puerto_str) <= 17):
+            await update.message.reply_text("❌ *Error:* El puerto debe ser un número del *1 al 17*.\nPor favor, ingresa un valor válido:", parse_mode="Markdown")
+            return paso
+
+        registro["PUERTO_REPORTADO"] = puerto_str
+
+        keyboard = [[
+            InlineKeyboardButton("✅ Confirmar", callback_data="CONFIRMAR_PUERTO_REPORTADO"),
+            InlineKeyboardButton("✏️ Corregir",  callback_data="CORREGIR_PUERTO_REPORTADO"),
+        ]]
+        await update.message.reply_text(
+            f"🔌 *Puerto ingresado:* `{registro['PUERTO_REPORTADO']}`\n\n¿Deseas confirmar o corregir?",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        registro["PASO_ACTUAL"] = "PUERTO_REPORTADO"
+        return "CONFIRMAR"
 
     # Por si acaso
     await update.message.reply_text("⚠️ Paso no reconocido. Intenta nuevamente.")
     return paso
 
+
+async def menu_tipo_cuadrilla(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    keyboard = [
+        [InlineKeyboardButton("🏢 Averias Lima", callback_data="SET_TCUAD_Averias Lima")],
+        [InlineKeyboardButton("🏢 Averias Provincia", callback_data="SET_TCUAD_Averias Provincia")],
+        [InlineKeyboardButton("🛠 Postventa Lima", callback_data="SET_TCUAD_Postventa Lima")],
+        [InlineKeyboardButton("🛠 Postventa Provincia", callback_data="SET_TCUAD_Postventa Provincia")]
+    ]
+    await query.edit_message_text(
+        "🛠 *Selecciona el Tipo de Cuadrilla:*",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode="Markdown"
+    )
+    return "TIPO_CUADRILLA"
+
+# Callback para procesar la selección
+async def callback_tipo_cuadrilla(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    data = query.data.replace("SET_TCUAD_", "")
+    registro = context.user_data.get("registro", {})
+    
+    registro["TIPO_CUADRILLA"] = data
+    await query.answer(f"Has elegido: {data}")
+    
+    # Pasamos al siguiente paso (Nombre de Cuadrilla)
+    await query.edit_message_text(f"✅ *Tipo:* {data}\n\n{PASOS['CUADRILLA']['mensaje']}", parse_mode="Markdown")
+    return "CUADRILLA"
+
+
+# manejar_confirmacion obs .. gg
+
+async def manejar_confirmacion_obs(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    registro = context.user_data.get("registro", {})
+    observacion = registro.get("OBSERVACION", "")
+
+    # 🔥 MAGIA ROBUSTA: ¿Requiere puerto?
+    if observacion in OBS_REQUIERE_PUERTO:
+        registro["PASO_ACTUAL"] = "PUERTO_REPORTADO"
+        texto = (
+            f"✅ *Observación confirmada:* {observacion}\n\n"
+            "🔌 *PASO REQUERIDO:*\n"
+            "Por favor, ingresa el **número del puerto** a reportar (del 1 al 17):"
+        )
+        await query.edit_message_text(texto, parse_mode="Markdown")
+        return "PUERTO_REPORTADO"
+    
+    else:
+        # No requiere puerto: Limpiamos campos y saltamos al resumen
+        registro["PUERTO_REPORTADO"] = "-"
+        registro["FOTO_PUERTO"] = "-"
+        return await mostrar_resumen_final(update, context)
 
 # ============================================================
 # ✅ CONFIRMAR_<PASO> → separa flujos (resumen vs normal)
@@ -1317,7 +1445,11 @@ async def mostrar_resumen_final(update: Update, context: ContextTypes.DEFAULT_TY
         dep          = reg.get("DEPARTAMENTO", "-")
         prov         = reg.get("PROVINCIA", "-")
         dist         = reg.get("DISTRITO", "-")
+        tipo_cuadrilla = reg.get("TIPO_CUADRILLA", "-")
+        puerto = reg.get("PUERTO_REPORTADO", "-")
         observacion  = reg.get("OBSERVACION", reg.get("OBS", "-"))
+
+
 
         # Coordenadas visibles
         coord_txt = f"({lat}, {lng})" if (lat is not None and lng is not None) else "(-, -)"
@@ -1336,12 +1468,19 @@ async def mostrar_resumen_final(update: Update, context: ContextTypes.DEFAULT_TY
             f"📍 *Coordenadas:* {coord_txt}\n"
             f"🧭 *Lugar:* {prov}, {dep}, {dist}\n"
         )
+        # Si el puerto no es un guion, lo mostramos
+        if puerto != "-":
+            resumen += f"🔌 *Puerto Reportado:* {puerto}\n"
         if link_mapa:
             resumen += f"[🌐 Ver ubicación CTO/NAP/FAT]({link_mapa})\n"
 
         foto_ok = "✅" if reg.get("FOTO_CAJA") else "❌"
         foto_open_ok = "✅" if reg.get("FOTO_CAJA_ABIERTA") else "❌"
         foto_med_ok = "✅" if reg.get("FOTO_MEDICION") else "❌"
+
+        # Si requiere foto de puerto, mostrar su check
+        if puerto != "-":
+            resumen += f"{'✅' if reg.get('FOTO_PUERTO') else '❌'} Foto Puerto\n"
 
         resumen += f"📸 *Foto CTO/NAP/FAT (Exterior):* {foto_ok}\n"
         resumen += f"📸 *Foto CTO/NAP/FAT (Interior):* {foto_open_ok}\n"
@@ -1978,8 +2117,3 @@ if __name__ == "__main__":
     verificar_carpeta_imagenes_inicial()
     cargar_cajas_nodos()
     main()
-
-
-
-
-
