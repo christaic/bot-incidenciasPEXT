@@ -737,7 +737,6 @@ async def manejar_paso(update: Update, context: ContextTypes.DEFAULT_TYPE, paso:
         # Botonera
         msg = (
             f"🏷 *Código CTO/NAP/FAT:* {registro['CODIGO_CAJA']}\n"
-            f"📡 *Nodo:* {registro.get('NODO','-')}\n\n"
             f"¿Deseas confirmar o corregir?"
         )
         keyboard = [[
@@ -785,8 +784,6 @@ async def manejar_paso(update: Update, context: ContextTypes.DEFAULT_TYPE, paso:
         # 📍 Mensaje con mapa y botones de confirmación/corrección
         mensaje_ubicacion = (
             f"✅ 📍 *Ubicación CTO/NAP/FAT confirmada:* ({lat:.6f}, {lng:.6f})\n"
-            f"🧭 *Lugar de Incidencia:* {registro['DEPARTAMENTO']}, "
-            f"{registro['PROVINCIA']}, {registro['DISTRITO']}\n"
             f"🌍 [Ver ubicación CTO](https://maps.google.com/?q={lat},{lng})"
         )
 
@@ -1307,7 +1304,6 @@ async def mostrar_resumen_final(update: Update, context: ContextTypes.DEFAULT_TY
         cliente      = reg.get("NOMBRE_CLIENTE", "-")
         cuadrilla    = reg.get("CUADRILLA", "-")
         partner      = reg.get("PARTNER", "-")
-        nodo         = reg.get("NODO", "-")
         cod_caja     = reg.get("CODIGO_CAJA", "-")
         lat          = reg.get("LAT_CAJA")
         lng          = reg.get("LNG_CAJA")
@@ -1329,9 +1325,7 @@ async def mostrar_resumen_final(update: Update, context: ContextTypes.DEFAULT_TY
             f"👷 *Cuadrilla:* {cuadrilla}\n"
             f"🏢 *Partner:* {partner}\n"
             f"🏷 *Código CTO/NAP/FAT:* {cod_caja}\n"
-            f"📡 *Nodo:* {nodo}\n"
             f"📍 *Coordenadas:* {coord_txt}\n"
-            f"🧭 *Lugar:* {prov}, {dep}, {dist}\n"
         )
         if link_mapa:
             resumen += f"[🌐 Ver ubicación CTO/NAP/FAT]({link_mapa})\n"
@@ -1677,7 +1671,6 @@ async def guardar_registro(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     registro["DISTRITO"] = dist
 
         # 🔹 Normalización de datos
-        nodo_val = registro.get("NODO", "-")
         foto_val = registro.get("FOTO_CAJA", "")
         foto_bytes = registro.get("FOTO_CAJA_BYTES")
 
@@ -1694,7 +1687,6 @@ async def guardar_registro(update: Update, context: ContextTypes.DEFAULT_TYPE):
             registro.get("TICKET", ""),
             registro.get("DNI", "-"),
             registro.get("NOMBRE_CLIENTE", "-"),
-            registro.get("NODO", "-"),
             registro.get("CODIGO_CAJA", ""),
             registro.get("FOTO_CAJA", ""),
             registro.get("FOTO_CAJA_ABIERTA"),
@@ -1746,9 +1738,7 @@ async def guardar_registro(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"👷 *Cuadrilla:* {registro.get('CUADRILLA', '-')}\n"
             f"🏢 *Partner:* {registro.get('PARTNER', '-')}\n"
             f"🏷 *Código CTO/NAP/FAT:* {registro.get('CODIGO_CAJA', '-')}\n"
-            f"📡 *Nodo:* {registro.get('NODO', '-')}\n"
             f"📍 *Coordenadas:* ({lat}, {lng})\n"
-            f"🧭 *Ubicación:* {prov}, {dep}, {dist}\n"
             f"[🌐 Ver ubicación CTO]({link_mapa})\n"
             f"📸 *Foto CTO/NAP/FAT (Exterior):* ✅\n"
             f"📸 *Foto CTO/NAP/FAT (Interior):* ✅\n"
