@@ -109,13 +109,6 @@ OBS_OPCIONES = {
 }
 
 
-OBS_REQUIERE_PUERTO = [
-    "CTO sin potencia", "CTO con potencia degradada", "CTO con puertos degradados", "CTO con puertos sin potencia",
-    "NAP sin potencia", "NAP con potencia degradada", "NAP con puertos degradados", "NAP con puertos sin potencia",
-    "FAT sin potencia", "FAT con potencia degradada", "FAT con puertos degradados", "FAT con puertos sin potencia"
-]
-
-
 def _detectar_tipo_por_codigo(codigo: str) -> str | None:
     c = (codigo or "").upper()
     if "CTO" in c: return "CTO"
@@ -574,7 +567,41 @@ async def manejar_seleccion_cuadrilla(update: Update, context: ContextTypes.DEFA
     await query.edit_message_text(texto, parse_mode="Markdown", reply_markup=markup)
     return "CONFIRMAR"
 
+
+async def mostrar_menu_cantidad_puertos(chat_id, context, query=None):
+    keyboard = [
+        [InlineKeyboardButton("1 puerto", callback_data="SET_CANT_PTO_1"),
+         InlineKeyboardButton("2 puertos", callback_data="SET_CANT_PTO_2"),
+         InlineKeyboardButton("3 puertos", callback_data="SET_CANT_PTO_3")]
+    ]
+    markup = InlineKeyboardMarkup(keyboard)
+    texto = "🔢 *¿Cuántos puertos vas a reportar?*"
+    
+    if query:
+        try: await query.edit_message_text(texto, reply_markup=markup, parse_mode="Markdown")
+        except: await context.bot.send_message(chat_id=chat_id, text=texto, reply_markup=markup, parse_mode="Markdown")
+    else:
+        await context.bot.send_message(chat_id=chat_id, text=texto, reply_markup=markup, parse_mode="Markdown")
+
+async def manejar_seleccion_cantidad_puertos(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    registro = context.user_data.setdefault("registro", {})
+    
+    cantidad = int(query.data.replace("SET_CANT_PTO_", ""))
+    registro["CANTIDAD_PUERTOS_TOTAL"] = cantidad
+    registro["PUERTOS_SELECCIONADOS"] = []  # Inicializamos la lista vacía
+    registro["PASO_ACTUAL"] = "PUERTO_REPORTADO"
+    
+    await mostrar_menu_puerto(query.message.chat_id, context, query)
+    return "PUERTO_REPORTADO"
+
+
 async def mostrar_menu_puerto(chat_id, context, query=None):
+    registro = context.user_data.setdefault("registro", {})
+    total = registro.get("CANTIDAD_PUERTOS_TOTAL", 1)
+    actual = len(registro.get("PUERTOS_SELECCIONADOS", [])) + 1
+    
     keyboard = []
     row = []
     for i in range(1, 18):
@@ -585,7 +612,7 @@ async def mostrar_menu_puerto(chat_id, context, query=None):
     if row: keyboard.append(row)
         
     markup = InlineKeyboardMarkup(keyboard)
-    texto = "🔌 *Selecciona el número de puerto reportado:*"
+    texto = f"🔌 *Selecciona el puerto {actual} de {total}:*"
     
     if query:
         try: await query.edit_message_text(texto, reply_markup=markup, parse_mode="Markdown")
@@ -593,16 +620,34 @@ async def mostrar_menu_puerto(chat_id, context, query=None):
     else:
         await context.bot.send_message(chat_id=chat_id, text=texto, reply_markup=markup, parse_mode="Markdown")
 
+
+
 async def manejar_seleccion_puerto(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     registro = context.user_data.setdefault("registro", {})
     
     valor = query.data.replace("SET_PTO_", "")
-    registro["PUERTO_REPORTADO"] = valor
+    
+    # Agregar puerto a la lista (evitando repetir el mismo si le da doble click sin querer)
+    lista_puertos = registro.get("PUERTOS_SELECCIONADOS", [])
+    if valor not in lista_puertos:
+        lista_puertos.append(valor)
+    registro["PUERTOS_SELECCIONADOS"] = lista_puertos
+    
+    total = registro.get("CANTIDAD_PUERTOS_TOTAL", 1)
+    
+    # Si aún faltan puertos, vuelve a mostrar la botonera
+    if len(lista_puertos) < total:
+        await mostrar_menu_puerto(query.message.chat_id, context, query)
+        return "PUERTO_REPORTADO"
+    
+    # Si ya eligió todos, arma el string y muestra confirmar/corregir
+    puertos_finales = ", ".join(lista_puertos)
+    registro["PUERTO_REPORTADO"] = puertos_finales
     registro["PASO_ACTUAL"] = "PUERTO_REPORTADO"
     
-    texto = f"🔌 *Puerto Reportado registrado:* {valor}\n\n¿Confirmas o corriges?"
+    texto = f"🔌 *Puerto(s) Reportado(s) registrado(s):* {puertos_finales}\n\n¿Confirmas o corriges?"
     markup = InlineKeyboardMarkup([
         [InlineKeyboardButton("✅ Confirmar", callback_data="CONFIRMAR_PUERTO_REPORTADO"),
          InlineKeyboardButton("✏️ Corregir", callback_data="CORREGIR_PUERTO_REPORTADO")]
@@ -1041,11 +1086,13 @@ async def manejar_confirmar_callback(update: Update, context: ContextTypes.DEFAU
         # 👇 MAGIA CONDICIONAL: ¿Requiere puerto?
         obs_seleccionada = registro.get("OBSERVACION", "")
         if obs_seleccionada in OBS_REQUIERE_PUERTO:
-            registro["PASO_ACTUAL"] = "PUERTO_REPORTADO"
-            await mostrar_menu_puerto(chat_id, context)
-            return "PUERTO_REPORTADO"
+            registro["PASO_ACTUAL"] = "CANTIDAD_PUERTOS"
+            await mostrar_menu_cantidad_puertos(chat_id, context)
+            return "CANTIDAD_PUERTOS"
         else:
             registro.pop("PUERTO_REPORTADO", None)
+            registro.pop("PUERTOS_SELECCIONADOS", None)
+            registro.pop("CANTIDAD_PUERTOS_TOTAL", None)
             registro.pop("FOTO_PUERTO", None)
             await mostrar_resumen_final(update, context)
             return "RESUMEN_FINAL"
@@ -1215,8 +1262,10 @@ async def manejar_corregir_callback(update: Update, context: ContextTypes.DEFAUL
         return "TIPO_CUADRILLA"
         
     if paso == "PUERTO_REPORTADO":
-        await mostrar_menu_puerto(chat_id, context, query)
-        return "PUERTO_REPORTADO"
+        registro["PUERTOS_SELECCIONADOS"] = [] # Limpiamos el historial
+        registro["PASO_ACTUAL"] = "CANTIDAD_PUERTOS"
+        await mostrar_menu_cantidad_puertos(chat_id, context, query if 'query' in locals() else None)
+        return "CANTIDAD_PUERTOS"
 
     # caso especial: OBS → abre menú
     if paso == "OBS":
@@ -1286,8 +1335,10 @@ async def manejar_edicion_desde_resumen_callback(update: Update, context: Contex
         return "TIPO_CUADRILLA"
 
     if paso == "PUERTO_REPORTADO":
-        await mostrar_menu_puerto(chat_id, context)
-        return "PUERTO_REPORTADO"
+        registro["PUERTOS_SELECCIONADOS"] = [] # Limpiamos el historial
+        registro["PASO_ACTUAL"] = "CANTIDAD_PUERTOS"
+        await mostrar_menu_cantidad_puertos(chat_id, context, query if 'query' in locals() else None)
+        return "CANTIDAD_PUERTOS"
 
     if paso in ("OBS", "OBS_TIPO", "OBS_SELECCION"):
         registro["PASO_ACTUAL"] = "OBS_TIPO"
@@ -1858,7 +1909,6 @@ async def guardar_registro(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"👷 *Cuadrilla:* {registro.get('CUADRILLA', '-')}\n"
             f"🏷 *Código CTO/NAP/FAT:* {registro.get('CODIGO_CAJA', '-')}\n"
             f"📍 *Coordenadas:* ({lat}, {lng})\n"
-            f"🧭 *Ubicación:* {prov}, {dep}, {dist}\n"
             f"[🌐 Ver ubicación CTO]({link_mapa})\n"
             f"📸 *Foto CTO/NAP/FAT (Exterior):* ✅\n"
             f"📸 *Foto CTO/NAP/FAT (Interior):* ✅\n"
@@ -1997,7 +2047,10 @@ def main():
             "FOTO_CAJA_ABIERTA": [MessageHandler(filters.PHOTO | filters.Document.IMAGE, lambda u, c: manejar_paso(u, c, "FOTO_CAJA_ABIERTA"))],
             "FOTO_MEDICION": [MessageHandler(filters.PHOTO | filters.Document.IMAGE, lambda u, c: manejar_paso(u, c, "FOTO_MEDICION"))],
             "OBS": [MessageHandler(filters.TEXT & ~filters.COMMAND, lambda u, c: manejar_paso(u, c, "OBS"))],
-            
+            "CANTIDAD_PUERTOS": [
+                CallbackQueryHandler(manejar_seleccion_cantidad_puertos, pattern=r"^SET_CANT_PTO_.*$"),
+            ],
+
             "PUERTO_REPORTADO": [
                 CallbackQueryHandler(manejar_seleccion_puerto, pattern=r"^SET_PTO_.*$"),
             ],
