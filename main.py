@@ -888,8 +888,7 @@ async def manejar_paso(update: Update, context: ContextTypes.DEFAULT_TYPE, paso:
 
         # 📍 Mensaje con mapa y botones de confirmación/corrección
         mensaje_ubicacion = (
-            f"✅ 📍 *Ubicación CTO/NAP/FAT confirmada:* ({lat:.6f}, {lng:.6f})\n""
-            f"{registro['PROVINCIA']}, {registro['DISTRITO']}\n"
+            f"✅ 📍 *Ubicación CTO/NAP/FAT confirmada:* ({lat:.6f}, {lng:.6f})\n"
             f"🌍 [Ver ubicación CTO](https://maps.google.com/?q={lat},{lng})"
         )
 
