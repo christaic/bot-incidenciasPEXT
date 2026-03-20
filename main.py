@@ -842,7 +842,6 @@ async def manejar_paso(update: Update, context: ContextTypes.DEFAULT_TYPE, paso:
         # Botonera
         msg = (
             f"🏷 *Código CTO/NAP/FAT:* {registro['CODIGO_CAJA']}\n"
-            f"📡 *Nodo:* {registro.get('NODO','-')}\n\n"
             f"¿Deseas confirmar o corregir?"
         )
         keyboard = [[
@@ -889,8 +888,7 @@ async def manejar_paso(update: Update, context: ContextTypes.DEFAULT_TYPE, paso:
 
         # 📍 Mensaje con mapa y botones de confirmación/corrección
         mensaje_ubicacion = (
-            f"✅ 📍 *Ubicación CTO/NAP/FAT confirmada:* ({lat:.6f}, {lng:.6f})\n"
-            f"🧭 *Lugar de Incidencia:* {registro['DEPARTAMENTO']}, "
+            f"✅ 📍 *Ubicación CTO/NAP/FAT confirmada:* ({lat:.6f}, {lng:.6f})\n""
             f"{registro['PROVINCIA']}, {registro['DISTRITO']}\n"
             f"🌍 [Ver ubicación CTO](https://maps.google.com/?q={lat},{lng})"
         )
@@ -1454,7 +1452,6 @@ async def mostrar_resumen_final(update: Update, context: ContextTypes.DEFAULT_TY
         tipo_cuadrilla = reg.get("TIPO_CUADRILLA", "-")
         cuadrilla    = reg.get("CUADRILLA", "-")
         cod_caja     = reg.get("CODIGO_CAJA", "-")
-        nodo         = reg.get("NODO", "-")
         lat, lng     = reg.get("LAT_CAJA"), reg.get("LNG_CAJA")
         observacion  = reg.get("OBSERVACION", reg.get("OBS", "-"))
         puerto_rep   = reg.get("PUERTO_REPORTADO")
@@ -1471,7 +1468,6 @@ async def mostrar_resumen_final(update: Update, context: ContextTypes.DEFAULT_TY
             f"👥 *Tipo Cuadrilla:* {tipo_cuadrilla}\n"
             f"👷 *Cuadrilla:* {cuadrilla}\n"
             f"🏷 *Código CTO/NAP/FAT:* {cod_caja}\n"
-            f"📡 *Nodo:* {nodo}\n"
             f"📍 *Coordenadas:* {coord_txt}\n"
         )
         if link_mapa: resumen += f"[🌐 Ver ubicación CTO/NAP/FAT]({link_mapa})\n"
@@ -1862,7 +1858,6 @@ async def guardar_registro(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"👥 *Tipo Cuadrilla:* {registro.get('TIPO_CUADRILLA', '-')}\n"
             f"👷 *Cuadrilla:* {registro.get('CUADRILLA', '-')}\n"
             f"🏷 *Código CTO/NAP/FAT:* {registro.get('CODIGO_CAJA', '-')}\n"
-            f"📡 *Nodo:* {registro.get('NODO', '-')}\n"
             f"📍 *Coordenadas:* ({lat}, {lng})\n"
             f"🧭 *Ubicación:* {prov}, {dep}, {dist}\n"
             f"[🌐 Ver ubicación CTO]({link_mapa})\n"
