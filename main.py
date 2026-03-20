@@ -59,10 +59,18 @@ CARPETA_BASE = "REPORTE_INCIDENCIAS"
 
 SHEET_NAME = "Hoja1"
 ENCABEZADOS = [
-    "USER_ID", "FECHA", "HORA", "PARTNER", "CUADRILLA", "TICKET", "DNI", "NOMBRE_CLIENTE",
+    "USER_ID", "FECHA", "HORA", "PARTNER", "TIPO_CUADRILLA", "CUADRILLA", "TICKET", "DNI", "NOMBRE_CLIENTE",
     "NODO", "CODIGO_CAJA", "FOTO_CAJA", "FOTO_CAJA_ABIERTA", "FOTO_MEDICION", "LAT_CAJA", "LNG_CAJA",
-    "DEPARTAMENTO", "PROVINCIA", "DISTRITO", "OBS"
+    "DEPARTAMENTO", "PROVINCIA", "DISTRITO", "OBS", "PUERTO_REPORTADO", "FOTO_PUERTO"
 ]
+
+# AÑADIR DESPLEGABLE ALTERNATIVO
+OBS_REQUIERE_PUERTO = [
+    "CTO sin potencia", "CTO con potencia degradada", "CTO con puertos degradados", "CTO con puertos sin potencia",
+    "NAP sin potencia", "NAP con potencia degradada", "NAP con puertos degradados", "NAP con puertos sin potencia",
+    "FAT sin potencia", "FAT con potencia degradada", "FAT con puertos degradados", "FAT con puertos sin potencia"
+]
+
 
 OBS_OPCIONES = {
     "CTO": [
@@ -79,7 +87,10 @@ OBS_OPCIONES = {
         "Trabajo en Conjunto - Municipal",
     ],
     "NAP": [
-
+        "NAP sin potencia",
+        "NAP con potencia degradada",
+        "NAP con puertos degradados",
+        "NAP con puertos sin potencia",
         "NAP con rotulo equivocado",
         "NAP con intermitencia",
         "NAP con degradación en OLT",
@@ -96,6 +107,14 @@ OBS_OPCIONES = {
         "Trabajo en Conjunto - Municipal",
     ],
 }
+
+
+OBS_REQUIERE_PUERTO = [
+    "CTO sin potencia", "CTO con potencia degradada", "CTO con puertos degradados", "CTO con puertos sin potencia",
+    "NAP sin potencia", "NAP con potencia degradada", "NAP con puertos degradados", "NAP con puertos sin potencia",
+    "FAT sin potencia", "FAT con potencia degradada", "FAT con puertos degradados", "FAT con puertos sin potencia"
+]
+
 
 def _detectar_tipo_por_codigo(codigo: str) -> str | None:
     c = (codigo or "").upper()
@@ -379,6 +398,11 @@ PASOS = {
         "mensaje": "🏢 Ingrese el nombre del *Partner*:",
         "siguiente": "CUADRILLA",
     },
+    "TIPO_CUADRILLA": {
+        "tipo": "menu",
+        "mensaje": "🛠 Selecciona el *Tipo de Cuadrilla*:",
+        "siguiente": "CUADRILLA",
+    },
     "CUADRILLA": {
         "tipo": "texto",
         "mensaje": "👷 Ingrese el *nombre o código de cuadrilla*: ",
@@ -415,6 +439,16 @@ PASOS = {
         "tipo": "menu",
         "mensaje": "🧭 Selecciona el tipo de observación en CTO / NAP / FAT:",
         "instruccion": "📋 Usa el menú para elegir el tipo de observación.",
+        "siguiente": "DINAMICO",
+    },
+    "PUERTO_REPORTADO": {
+        "tipo": "texto",
+        "mensaje": "🔌 Ingresa el *número del puerto* a reportar (del 1 al 17):",
+        "siguiente": "FOTO_PUERTO",
+    },
+    "FOTO_PUERTO": {
+        "tipo": "foto",
+        "mensaje": "📸 Envía la *foto del puerto reportado sin potencia*:"",
         "siguiente": "RESUMEN_FINAL",
     }
 }
@@ -427,16 +461,17 @@ ETIQUETAS = {
     "DNI": "🪪 DNI Cliente",
     "NOMBRE_CLIENTE": "👤 Cliente",
     "PARTNER": "🏢 Partner",
+    "TIPO_CUADRILLA": "👥 Tipo Cuadrilla",
     "CUADRILLA": "👷 Cuadrilla",
     "CODIGO_CAJA": "🏷 Código CTO/NAP/FAT",
     "UBICACION_CTO": "📍 Ubicación CTO/NAP/FAT",
     "FOTO_CAJA": "📸 Foto CTO/NAP/FAT (Exterior)",
     "FOTO_CAJA_ABIERTA": "📦 Foto de CTO/NAP/FAT (Interior)",
     "FOTO_MEDICION": "📏 Foto de medición óptica (dBm)",
-    "OBS": "📝 Observaciones"
+    "OBS": "📝 Observaciones",
+    "PUERTO_REPORTADO": "🔌 Puerto Reportado",
+    "FOTO_PUERTO": "📸 Foto del Puerto"
 }
-
-
 
 
 # ================== UTILS ==================
@@ -505,6 +540,76 @@ def obtener_ubicacion(lat, lng):
             elif "locality" in comp["types"] or "administrative_area_level_3" in comp["types"]:
                 distrito = comp["long_name"]
     return departamento, provincia, distrito
+
+
+# ============================================================
+# 📋 NUEVOS MENÚS DESPLEGABLES: TIPO DE CUADRILLA Y PUERTO
+# ============================================================
+async def mostrar_menu_tipo_cuadrilla(chat_id, context, query=None):
+    opciones = ["AVERIAS LIMA", "AVERIAS PROVINCIA", "POSTVENTA LIMA", "POSTVENTA PROVINCIA"]
+    keyboard = [[InlineKeyboardButton(opc, callback_data=f"SET_TC_{opc}")] for opc in opciones]
+    markup = InlineKeyboardMarkup(keyboard)
+    texto = "👥 *Selecciona el Tipo de Cuadrilla:*"
+    
+    if query:
+        try: await query.edit_message_text(texto, reply_markup=markup, parse_mode="Markdown")
+        except: await context.bot.send_message(chat_id=chat_id, text=texto, reply_markup=markup, parse_mode="Markdown")
+    else:
+        await context.bot.send_message(chat_id=chat_id, text=texto, reply_markup=markup, parse_mode="Markdown")
+
+async def manejar_seleccion_cuadrilla(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    registro = context.user_data.setdefault("registro", {})
+    
+    valor = query.data.replace("SET_TC_", "")
+    registro["TIPO_CUADRILLA"] = valor
+    registro["PASO_ACTUAL"] = "TIPO_CUADRILLA"
+    
+    texto = f"👥 *Tipo de Cuadrilla registrado:* {valor}\n\n¿Confirmas o corriges?"
+    markup = InlineKeyboardMarkup([
+        [InlineKeyboardButton("✅ Confirmar", callback_data="CONFIRMAR_TIPO_CUADRILLA"),
+         InlineKeyboardButton("✏️ Corregir", callback_data="CORREGIR_TIPO_CUADRILLA")]
+    ])
+    await query.edit_message_text(texto, parse_mode="Markdown", reply_markup=markup)
+    return "CONFIRMAR"
+
+async def mostrar_menu_puerto(chat_id, context, query=None):
+    keyboard = []
+    row = []
+    for i in range(1, 18):
+        row.append(InlineKeyboardButton(str(i), callback_data=f"SET_PTO_{i}"))
+        if len(row) == 4: 
+            keyboard.append(row)
+            row = []
+    if row: keyboard.append(row)
+        
+    markup = InlineKeyboardMarkup(keyboard)
+    texto = "🔌 *Selecciona el número de puerto reportado:*"
+    
+    if query:
+        try: await query.edit_message_text(texto, reply_markup=markup, parse_mode="Markdown")
+        except: await context.bot.send_message(chat_id=chat_id, text=texto, reply_markup=markup, parse_mode="Markdown")
+    else:
+        await context.bot.send_message(chat_id=chat_id, text=texto, reply_markup=markup, parse_mode="Markdown")
+
+async def manejar_seleccion_puerto(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    registro = context.user_data.setdefault("registro", {})
+    
+    valor = query.data.replace("SET_PTO_", "")
+    registro["PUERTO_REPORTADO"] = valor
+    registro["PASO_ACTUAL"] = "PUERTO_REPORTADO"
+    
+    texto = f"🔌 *Puerto Reportado registrado:* {valor}\n\n¿Confirmas o corriges?"
+    markup = InlineKeyboardMarkup([
+        [InlineKeyboardButton("✅ Confirmar", callback_data="CONFIRMAR_PUERTO_REPORTADO"),
+         InlineKeyboardButton("✏️ Corregir", callback_data="CORREGIR_PUERTO_REPORTADO")]
+    ])
+    await query.edit_message_text(texto, parse_mode="Markdown", reply_markup=markup)
+    return "CONFIRMAR"
+
 
 
 # ================== START ==================
@@ -737,6 +842,7 @@ async def manejar_paso(update: Update, context: ContextTypes.DEFAULT_TYPE, paso:
         # Botonera
         msg = (
             f"🏷 *Código CTO/NAP/FAT:* {registro['CODIGO_CAJA']}\n"
+            f"📡 *Nodo:* {registro.get('NODO','-')}\n\n"
             f"¿Deseas confirmar o corregir?"
         )
         keyboard = [[
@@ -784,6 +890,8 @@ async def manejar_paso(update: Update, context: ContextTypes.DEFAULT_TYPE, paso:
         # 📍 Mensaje con mapa y botones de confirmación/corrección
         mensaje_ubicacion = (
             f"✅ 📍 *Ubicación CTO/NAP/FAT confirmada:* ({lat:.6f}, {lng:.6f})\n"
+            f"🧭 *Lugar de Incidencia:* {registro['DEPARTAMENTO']}, "
+            f"{registro['PROVINCIA']}, {registro['DISTRITO']}\n"
             f"🌍 [Ver ubicación CTO](https://maps.google.com/?q={lat},{lng})"
         )
 
@@ -920,14 +1028,11 @@ async def manejar_confirmar_callback(update: Update, context: ContextTypes.DEFAU
         if old_menu_id:
             try:
                 await context.bot.delete_message(chat_id=chat_id, message_id=old_menu_id)
-            except Exception:
-                pass
-
+            except Exception:pass
         # 🧹 Eliminar también el mensaje anterior de confirmación de observación (si existe)
         try:
             await query.delete_message()
-        except Exception:
-            pass
+        except Exception: pass
 
         # ✅ Mostrar confirmación única
         await context.bot.send_message(
@@ -936,9 +1041,25 @@ async def manejar_confirmar_callback(update: Update, context: ContextTypes.DEFAU
             parse_mode="Markdown"
         )
 
-        # 🧾 Luego mostrar resumen final
+        # 👇 MAGIA CONDICIONAL: ¿Requiere puerto?
+        obs_seleccionada = registro.get("OBSERVACION", "")
+        if obs_seleccionada in OBS_REQUIERE_PUERTO:
+            registro["PASO_ACTUAL"] = "PUERTO_REPORTADO"
+            await mostrar_menu_puerto(chat_id, context)
+            return "PUERTO_REPORTADO"
+        else:
+            registro.pop("PUERTO_REPORTADO", None)
+            registro.pop("FOTO_PUERTO", None)
+            await mostrar_resumen_final(update, context)
+            return "RESUMEN_FINAL"
+
+    # 👇 INTERCEPTAR CUANDO TERMINE LA FOTO DEL PUERTO
+    if paso == "FOTO_PUERTO":
+        try: await query.edit_message_text("✅ Foto de puerto confirmada.", parse_mode="Markdown")
+        except Exception: pass
         await mostrar_resumen_final(update, context)
         return "RESUMEN_FINAL"
+
 
     # ============================================================
     # 🟢 1) CORRECCIÓN DESDE RESUMEN FINAL
@@ -966,23 +1087,31 @@ async def manejar_confirmar_callback(update: Update, context: ContextTypes.DEFAU
     # ============================================================
     # 🟢 1.5) FLUJO MANUAL PARA CAMPOS BÁSICOS (TICKET, DNI, CLIENTE, PARTNER, CUADRILLA)
     # ============================================================
-    if paso in ["TICKET", "DNI", "NOMBRE_CLIENTE", "PARTNER", "CUADRILLA"]:
-        try:
-            # 🧹 Limpia el mensaje de botones
-            await query.edit_message_text(f"✅ {paso.replace('_',' ')} confirmado correctamente.", parse_mode="Markdown")
-        except Exception:
-            pass
+    if paso in ["TICKET", "DNI", "NOMBRE_CLIENTE", "PARTNER", "TIPO_CUADRILLA", "CUADRILLA", "PUERTO_REPORTADO"]:
+        try: await query.edit_message_text(f"✅ {paso.replace('_',' ')} confirmado.", parse_mode="Markdown")
+        except: pass
+
+        if paso == "PUERTO_REPORTADO":
+            await context.bot.send_message(chat_id, "📸 Envía la *foto del puerto reportado sin potencia*:", parse_mode="Markdown")
+            registro["PASO_ACTUAL"] = "FOTO_PUERTO"
+            return "FOTO_PUERTO"
 
         # Avanza al siguiente paso
         siguiente_paso = {
             "TICKET": "DNI",
             "DNI": "NOMBRE_CLIENTE",
             "NOMBRE_CLIENTE": "PARTNER",
-            "PARTNER": "CUADRILLA",
+            "PARTNER": "TIPO_CUADRILLA",
+            "TIPO_CUADRILLA": "CUADRILLA",
             "CUADRILLA": "CODIGO_CAJA"
         }.get(paso)
 
         if siguiente_paso:
+            if siguiente_paso == "TIPO_CUADRILLA":
+                await mostrar_menu_tipo_cuadrilla(chat_id, context)
+                registro["PASO_ACTUAL"] = "TIPO_CUADRILLA"
+                return "TIPO_CUADRILLA"
+
             mensajes = {
                 "DNI": "🪪 Ingrese ahora el *DNI del cliente:*",
                 "NOMBRE_CLIENTE": "👤 Ingrese el *Nombre del Cliente:*",
@@ -990,6 +1119,7 @@ async def manejar_confirmar_callback(update: Update, context: ContextTypes.DEFAU
                 "CUADRILLA": "👷 Ingresa tu *nomenclatura junto al nombre de tu Cuadrilla:*",
                 "CODIGO_CAJA": "🏷 Ingrese el *Código de CTO/NAP/FAT:*"
             }
+            
             texto = mensajes.get(siguiente_paso, f"➡️ Continúa con *{siguiente_paso.replace('_',' ')}*")
             await context.bot.send_message(chat_id=chat_id, text=texto, parse_mode="Markdown")
             registro["PASO_ACTUAL"] = siguiente_paso
@@ -1081,7 +1211,15 @@ async def manejar_corregir_callback(update: Update, context: ContextTypes.DEFAUL
         registro["EN_CORRECCION"] = True   # ← para que al confirmar avance al siguiente paso
     registro["PASO_ACTUAL"] = paso
 
-    tipo = PASOS.get(paso, {}).get("tipo", "texto")
+
+    # 👇 CASOS ESPECIALES PARA DESPLEGAR BOTONERAS AL CORREGIR
+    if paso == "TIPO_CUADRILLA":
+        await mostrar_menu_tipo_cuadrilla(chat_id, context, query)
+        return "TIPO_CUADRILLA"
+        
+    if paso == "PUERTO_REPORTADO":
+        await mostrar_menu_puerto(chat_id, context, query)
+        return "PUERTO_REPORTADO"
 
     # caso especial: OBS → abre menú
     if paso == "OBS":
@@ -1094,6 +1232,7 @@ async def manejar_corregir_callback(update: Update, context: ContextTypes.DEFAUL
         await mostrar_menu_obs(chat_id, context, tipo=None)
         return "OBS_TIPO"
 
+    tipo = PASOS.get(paso, {}).get("tipo", "texto")
     # mensajes por tipo
     mensajes = {
         "texto": f"✏️ Ingresa nuevamente el *{paso.replace('_', ' ')}*: ",
@@ -1144,6 +1283,20 @@ async def manejar_edicion_desde_resumen_callback(update: Update, context: Contex
     registro["VOLVER_A_RESUMEN"] = True
     registro["EN_CORRECCION"] = True
     registro["PASO_ACTUAL"] = paso
+
+    if paso == "TIPO_CUADRILLA":
+        await mostrar_menu_tipo_cuadrilla(chat_id, context)
+        return "TIPO_CUADRILLA"
+
+    if paso == "PUERTO_REPORTADO":
+        await mostrar_menu_puerto(chat_id, context)
+        return "PUERTO_REPORTADO"
+
+    if paso in ("OBS", "OBS_TIPO", "OBS_SELECCION"):
+        registro["PASO_ACTUAL"] = "OBS_TIPO"
+        await context.bot.send_message(chat_id=chat_id, text="📋 Usa el menú para elegir el tipo de observación:", parse_mode="Markdown")
+        await mostrar_menu_obs(chat_id, context, tipo=None)
+        return "OBS_TIPO"
 
     # ============================================================
     # 🟡 CASO ESPECIAL: Observación → mostrar menú automático
@@ -1285,50 +1438,43 @@ async def mostrar_menu_obs(chat_id, context, tipo: str | None = None, query=None
 # ================== RESUMEN FINAL (versión mejorada y sincronizada) ==================
 async def mostrar_resumen_final(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        reg = context.user_data.get("registro", {})  # <- SIEMPRE dict
+        reg = context.user_data.get("registro", {}) 
         chat_id = update.effective_chat.id
         bot = context.bot
 
-        # 🧹 Eliminar mensaje anterior si ya existía un resumen previo
         old_msg_id = reg.pop("ULTIMO_MENSAJE_RESUMEN", None)
         if old_msg_id:
-            try:
-                await bot.delete_message(chat_id=chat_id, message_id=old_msg_id)
-                logger.info("🧹 Mensaje viejo de resumen eliminado correctamente.")
-            except Exception:
-                logger.debug("⚠️ No se pudo eliminar el mensaje anterior (ya borrado o editado).")
+            try: await bot.delete_message(chat_id=chat_id, message_id=old_msg_id)
+            except: pass
 
-        # Valores seguros
         ticket       = reg.get("TICKET", "-")
         dni          = reg.get("DNI", "-")
         cliente      = reg.get("NOMBRE_CLIENTE", "-")
-        cuadrilla    = reg.get("CUADRILLA", "-")
         partner      = reg.get("PARTNER", "-")
+        tipo_cuadrilla = reg.get("TIPO_CUADRILLA", "-")
+        cuadrilla    = reg.get("CUADRILLA", "-")
         cod_caja     = reg.get("CODIGO_CAJA", "-")
-        lat          = reg.get("LAT_CAJA")
-        lng          = reg.get("LNG_CAJA")
-        dep          = reg.get("DEPARTAMENTO", "-")
-        prov         = reg.get("PROVINCIA", "-")
-        dist         = reg.get("DISTRITO", "-")
+        nodo         = reg.get("NODO", "-")
+        lat, lng     = reg.get("LAT_CAJA"), reg.get("LNG_CAJA")
         observacion  = reg.get("OBSERVACION", reg.get("OBS", "-"))
+        puerto_rep   = reg.get("PUERTO_REPORTADO")
 
-        # Coordenadas visibles
-        coord_txt = f"({lat}, {lng})" if (lat is not None and lng is not None) else "(-, -)"
+        coord_txt = f"({lat}, {lng})" if (lat and lng) else "(-, -)"
         link_mapa = f"https://maps.google.com/?q={lat},{lng}" if (lat and lng) else None
 
-        # 📋 Texto del resumen
         resumen = (
             "📋 *Resumen de la incidencia*\n\n"
             f"🎫 *Ticket:* `{ticket}`\n"
             f"🪪 *DNI:* {dni}\n"
             f"👤 *Cliente:* {cliente}\n"
-            f"👷 *Cuadrilla:* {cuadrilla}\n"
             f"🏢 *Partner:* {partner}\n"
+            f"👥 *Tipo Cuadrilla:* {tipo_cuadrilla}\n"
+            f"👷 *Cuadrilla:* {cuadrilla}\n"
             f"🏷 *Código CTO/NAP/FAT:* {cod_caja}\n"
+            f"📡 *Nodo:* {nodo}\n"
             f"📍 *Coordenadas:* {coord_txt}\n"
         )
-        if link_mapa:
-            resumen += f"[🌐 Ver ubicación CTO/NAP/FAT]({link_mapa})\n"
+        if link_mapa: resumen += f"[🌐 Ver ubicación CTO/NAP/FAT]({link_mapa})\n"
 
         foto_ok = "✅" if reg.get("FOTO_CAJA") else "❌"
         foto_open_ok = "✅" if reg.get("FOTO_CAJA_ABIERTA") else "❌"
@@ -1337,57 +1483,30 @@ async def mostrar_resumen_final(update: Update, context: ContextTypes.DEFAULT_TY
         resumen += f"📸 *Foto CTO/NAP/FAT (Exterior):* {foto_ok}\n"
         resumen += f"📸 *Foto CTO/NAP/FAT (Interior):* {foto_open_ok}\n"
         resumen += f"📸 *Foto CTO/NAP/FAT (Medición):* {foto_med_ok}\n"
-        resumen += f"📝 *Observaciones:* {observacion}\n\n"
-        resumen += "¿Deseas confirmar tu registro?"
+        resumen += f"📝 *Observaciones:* {observacion}\n"
 
-        # 🔘 Botonera
-        keyboard = [
-            [InlineKeyboardButton("✅ Guardar", callback_data="FINAL_GUARDAR")],
-            [InlineKeyboardButton("✏️ Corregir", callback_data="FINAL_CORREGIR")],
-            [InlineKeyboardButton("❌ Cancelar", callback_data="FINAL_CANCELAR")],
-        ]
+        if puerto_rep:
+            resumen += f"🔌 *Puerto Reportado:* {puerto_rep}\n"
+            foto_pto_ok = "✅" if reg.get("FOTO_PUERTO") else "❌"
+            resumen += f"📸 *Foto Puerto (Sin potencia):* {foto_pto_ok}\n"
 
+        resumen += "\n¿Deseas confirmar tu registro?"
+
+        keyboard = [[InlineKeyboardButton("✅ Guardar", callback_data="FINAL_GUARDAR")], [InlineKeyboardButton("✏️ Corregir", callback_data="FINAL_CORREGIR")], [InlineKeyboardButton("❌ Cancelar", callback_data="FINAL_CANCELAR")]]
         markup = InlineKeyboardMarkup(keyboard)
 
-        # 📤 Mostrar resumen: callback o mensaje directo (con fallback seguro)
         if getattr(update, "callback_query", None):
-            try:
-                msg = await update.callback_query.edit_message_text(
-                    resumen,
-                    parse_mode="Markdown",
-                    reply_markup=markup,
-                    disable_web_page_preview=True,
-                )
-            except Exception as e:
-                logger.warning(f"⚠️ No se pudo editar mensaje previo: {e} → enviando nuevo mensaje.")
-                msg = await bot.send_message(
-                    chat_id=chat_id,
-                    text=resumen,
-                    parse_mode="Markdown",
-                    reply_markup=markup,
-                    disable_web_page_preview=True,
-                )
+            try: msg = await update.callback_query.edit_message_text(resumen, parse_mode="Markdown", reply_markup=markup, disable_web_page_preview=True)
+            except: msg = await bot.send_message(chat_id=chat_id, text=resumen, parse_mode="Markdown", reply_markup=markup, disable_web_page_preview=True)
         else:
-            msg = await update.message.reply_text(
-                resumen,
-                parse_mode="Markdown",
-                reply_markup=markup,
-                disable_web_page_preview=True,
-            )
+            msg = await update.message.reply_text(resumen, parse_mode="Markdown", reply_markup=markup, disable_web_page_preview=True)
 
-        # 🧠 Guardar el nuevo mensaje y estado
         reg["ULTIMO_MENSAJE_RESUMEN"] = msg.message_id
         reg["PASO_ACTUAL"] = "RESUMEN_FINAL"
-
-        logger.info("🧾 Resumen final mostrado correctamente.")
         return "RESUMEN_FINAL"
 
     except Exception as e:
         logger.error(f"❌ Error en mostrar_resumen_final: {e}")
-        try:
-            await context.bot.send_message(update.effective_chat.id, f"⚠️ Error mostrando resumen: {e}")
-        except Exception:
-            pass
         return ConversationHandler.END
 
 
@@ -1423,13 +1542,15 @@ async def resumen_final_callback(update: Update, context: ContextTypes.DEFAULT_T
         texto = "✏️ *Selecciona el campo que deseas corregir:*"
         keyboard = [
             [InlineKeyboardButton("🎫 Ticket", callback_data="EDITAR_TICKET")],
+            [InlineKeyboardButton("👥 Tipo Cuadrilla", callback_data="EDITAR_TIPO_CUADRILLA")],
             [InlineKeyboardButton("🏷 Código CTO/NAP/FAT", callback_data="EDITAR_CODIGO_CAJA")],
             [InlineKeyboardButton("📍 Ubicación CTO/NAP/FAT", callback_data="EDITAR_UBICACION_CTO")],
-            [InlineKeyboardButton("📸 Foto CTO/NAP/FAT (Exterior)", callback_data="EDITAR_FOTO_CAJA")],
-            [InlineKeyboardButton("📸 Foto CTO/NAP/FAT (Interior)", callback_data="EDITAR_FOTO_CAJA_ABIERTA")],
-            [InlineKeyboardButton("📸 Foto CTO/NAP/FAT (Medición)", callback_data="EDITAR_FOTO_MEDICION")],
-            [InlineKeyboardButton("📝 Observación", callback_data="EDITAR_OBS")],
+            [InlineKeyboardButton("📸 Foto (Exterior)", callback_data="EDITAR_FOTO_CAJA"), InlineKeyboardButton("📸 Foto (Interior)", callback_data="EDITAR_FOTO_CAJA_ABIERTA")],
+            [InlineKeyboardButton("📸 Foto (Medición)", callback_data="EDITAR_FOTO_MEDICION"), InlineKeyboardButton("📝 Observación", callback_data="EDITAR_OBS")],
         ]
+
+        if registro.get("PUERTO_REPORTADO"):
+            keyboard.append([InlineKeyboardButton("🔌 Puerto", callback_data="EDITAR_PUERTO_REPORTADO"), InlineKeyboardButton("📸 Foto Puerto", callback_data="EDITAR_FOTO_PUERTO")])
 
         await context.bot.send_message(
             chat_id=chat_id,
@@ -1479,9 +1600,7 @@ async def manejar_volver_desde_resumen_callback(update: Update, context: Context
         pass
 
     # 🧠 Restaurar contexto
-    registro["PASO_ACTUAL"] = "RESUMEN_FINAL"
-    registro["EN_CORRECCION"] = False
-    registro["VOLVER_A_RESUMEN"] = False
+    registro["PASO_ACTUAL"], registro["EN_CORRECCION"], registro["VOLVER_A_RESUMEN"] = "RESUMEN_FINAL", False, False
 
     logger.info("🔙 [VOLVER] Regresando correctamente al Resumen Final")
 
@@ -1671,6 +1790,7 @@ async def guardar_registro(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     registro["DISTRITO"] = dist
 
         # 🔹 Normalización de datos
+        nodo_val = registro.get("NODO", "-")
         foto_val = registro.get("FOTO_CAJA", "")
         foto_bytes = registro.get("FOTO_CAJA_BYTES")
 
@@ -1683,22 +1803,25 @@ async def guardar_registro(update: Update, context: ContextTypes.DEFAULT_TYPE):
             registro.get("FECHA", ""),
             registro.get("HORA", ""),
             registro.get("PARTNER", "-"),
+            registro.get("TIPO_CUADRILLA", "-"),
             registro.get("CUADRILLA", "-"),
             registro.get("TICKET", ""),
             registro.get("DNI", "-"),
             registro.get("NOMBRE_CLIENTE", "-"),
+            registro.get("NODO", "-"),
             registro.get("CODIGO_CAJA", ""),
             registro.get("FOTO_CAJA", ""),
-            registro.get("FOTO_CAJA_ABIERTA"),
-            registro.get("FOTO_MEDICION"),
+            registro.get("FOTO_CAJA_ABIERTA", ""),
+            registro.get("FOTO_MEDICION", ""),
             registro.get("LAT_CAJA", ""),
             registro.get("LNG_CAJA", ""),
             registro.get("DEPARTAMENTO", ""),
             registro.get("PROVINCIA", ""),
             registro.get("DISTRITO", ""),
             registro.get("OBS", "-"),
+            registro.get("PUERTO_REPORTADO", ""),
+            registro.get("FOTO_PUERTO", "")
         ]
-
         # ==========================================
         # ☁️ Guardar registro solo en Google Sheets
         # ==========================================
@@ -1735,17 +1858,23 @@ async def guardar_registro(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🎫 *Ticket:* `{registro.get('TICKET', '-')}`\n"
             f"🪪 *DNI:* {registro.get('DNI', '-')}\n"
             f"👤 *Cliente:* {registro.get('NOMBRE_CLIENTE', '-')}\n"
-            f"👷 *Cuadrilla:* {registro.get('CUADRILLA', '-')}\n"
             f"🏢 *Partner:* {registro.get('PARTNER', '-')}\n"
+            f"👥 *Tipo Cuadrilla:* {registro.get('TIPO_CUADRILLA', '-')}\n"
+            f"👷 *Cuadrilla:* {registro.get('CUADRILLA', '-')}\n"
             f"🏷 *Código CTO/NAP/FAT:* {registro.get('CODIGO_CAJA', '-')}\n"
+            f"📡 *Nodo:* {registro.get('NODO', '-')}\n"
             f"📍 *Coordenadas:* ({lat}, {lng})\n"
+            f"🧭 *Ubicación:* {prov}, {dep}, {dist}\n"
             f"[🌐 Ver ubicación CTO]({link_mapa})\n"
             f"📸 *Foto CTO/NAP/FAT (Exterior):* ✅\n"
             f"📸 *Foto CTO/NAP/FAT (Interior):* ✅\n"
             f"📸 *Foto CTO/NAP/FAT (Medición):* ✅\n"          
-            f"📝 *Observaciones:* {registro.get('OBS', '-')}"
+            f"📝 *Observaciones:* {registro.get('OBS', '-')}\n"
         )
-
+        if registro.get("PUERTO_REPORTADO"):
+            resumen_final += f"🔌 *Puerto Reportado:* {registro.get('PUERTO_REPORTADO')}\n"
+            resumen_final += f"📸 *Foto Puerto:* ✅\n"
+    
         # 📲 Enviar al técnico
         msg_final = await context.bot.send_message(chat_id, resumen_final, parse_mode="Markdown")
         registro["ULTIMO_MENSAJE_RESUMEN"] = msg_final.message_id  # opcional, por si se usa luego
@@ -1857,57 +1986,29 @@ def main():
             CommandHandler("registro", comando_registro),
         ],
         states={
-            # ====== PASO 1: TICKET ======
-            "TICKET": [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, lambda u, c: manejar_paso(u, c, "TICKET")),
+            "TICKET": [MessageHandler(filters.TEXT & ~filters.COMMAND, lambda u, c: manejar_paso(u, c, "TICKET"))],
+            "DNI": [MessageHandler(filters.TEXT & ~filters.COMMAND, lambda u, c: manejar_paso(u, c, "DNI"))],
+            "NOMBRE_CLIENTE": [MessageHandler(filters.TEXT & ~filters.COMMAND, lambda u, c: manejar_paso(u, c, "NOMBRE_CLIENTE"))],
+            "PARTNER": [MessageHandler(filters.TEXT & ~filters.COMMAND, lambda u, c: manejar_paso(u, c, "PARTNER"))],
+            
+            # 👇 NUEVOS MENÚS (TIPO_CUADRILLA Y PUERTO_REPORTADO)
+            "TIPO_CUADRILLA": [
+                CallbackQueryHandler(manejar_seleccion_cuadrilla, pattern=r"^SET_TC_.*$"),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, lambda u, c: manejar_paso(u, c, "TIPO_CUADRILLA")),
             ],
-            # ====== PASO 2: DNI DEL CLIENTE ======
-            "DNI": [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, lambda u, c: manejar_paso(u, c, "DNI")),
+            "CUADRILLA": [MessageHandler(filters.TEXT & ~filters.COMMAND, lambda u, c: manejar_paso(u, c, "CUADRILLA"))],
+            "CODIGO_CAJA": [MessageHandler(filters.TEXT & ~filters.COMMAND, lambda u, c: manejar_paso(u, c, "CODIGO_CAJA"))],
+            "UBICACION_CTO": [MessageHandler(filters.LOCATION, lambda u, c: manejar_paso(u, c, "UBICACION_CTO"))],
+            "FOTO_CAJA": [MessageHandler(filters.PHOTO | filters.Document.IMAGE, lambda u, c: manejar_paso(u, c, "FOTO_CAJA"))],
+            "FOTO_CAJA_ABIERTA": [MessageHandler(filters.PHOTO | filters.Document.IMAGE, lambda u, c: manejar_paso(u, c, "FOTO_CAJA_ABIERTA"))],
+            "FOTO_MEDICION": [MessageHandler(filters.PHOTO | filters.Document.IMAGE, lambda u, c: manejar_paso(u, c, "FOTO_MEDICION"))],
+            "OBS": [MessageHandler(filters.TEXT & ~filters.COMMAND, lambda u, c: manejar_paso(u, c, "OBS"))],
+            
+            "PUERTO_REPORTADO": [
+                CallbackQueryHandler(manejar_seleccion_puerto, pattern=r"^SET_PTO_.*$"),
             ],
+            "FOTO_PUERTO": [MessageHandler(filters.PHOTO | filters.Document.IMAGE, lambda u, c: manejar_paso(u, c, "FOTO_PUERTO"))],
 
-            # ====== PASO 3: NOMBRE DEL CLIENTE ======
-            "NOMBRE_CLIENTE": [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, lambda u, c: manejar_paso(u, c, "NOMBRE_CLIENTE")),
-            ],
-
-            # ====== PASO 4: PARTNER ======
-            "PARTNER": [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, lambda u, c: manejar_paso(u, c, "PARTNER")),
-            ],
-
-            # ====== PASO 5: CUADRILLA ======
-            "CUADRILLA": [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, lambda u, c: manejar_paso(u, c, "CUADRILLA")),
-            ],
-
-            # ====== PASO 2: CÓDIGO CTO/NAP/FAT ======
-            "CODIGO_CAJA": [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, lambda u, c: manejar_paso(u, c, "CODIGO_CAJA")),
-            ],
-
-            # ====== PASO 3: UBICACIÓN ======
-            "UBICACION_CTO": [
-                MessageHandler(filters.LOCATION, lambda u, c: manejar_paso(u, c, "UBICACION_CTO")),
-            ],
-
-            # ====== PASO 4: FOTO ======
-            "FOTO_CAJA": [
-                MessageHandler(filters.PHOTO | filters.Document.IMAGE, lambda u, c: manejar_paso(u, c, "FOTO_CAJA")),
-            ],
-            "FOTO_CAJA_ABIERTA": [
-                MessageHandler(filters.PHOTO | filters.Document.IMAGE, lambda u, c: manejar_paso(u, c, "FOTO_CAJA_ABIERTA")),
-            ],
-            "FOTO_MEDICION": [
-                MessageHandler(filters.PHOTO | filters.Document.IMAGE, lambda u, c: manejar_paso(u, c, "FOTO_MEDICION")),
-            ],
-
-            # ====== PASO 5: OBSERVACIONES ======
-            "OBS": [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, lambda u, c: manejar_paso(u, c, "OBS")),
-            ],
-
-            # 👇 Submenús de observaciones
             "OBS_TIPO": [
                 CallbackQueryHandler(manejar_tipo_obs_callback, pattern=r"^OBS_TIPO_.*$"),
                 CallbackQueryHandler(manejar_tipo_obs_callback, pattern=r"^OBS_TIPO_BACK$"),
@@ -1916,20 +2017,16 @@ def main():
                 CallbackQueryHandler(manejar_observacion_callback, pattern=r"^OBS_SET_.*$"),
                 CallbackQueryHandler(manejar_tipo_obs_callback, pattern=r"^OBS_BACK$"),
             ],
-
-            # ====== CONFIRMAR / CORREGIR / EDITAR ======
             "CONFIRMAR": [
                 CallbackQueryHandler(manejar_confirmar_callback, pattern=r"^CONFIRMAR_.*$"),
                 CallbackQueryHandler(manejar_corregir_callback, pattern=r"^CORREGIR_.*$"),
                 CallbackQueryHandler(manejar_ir_resumen_final_callback, pattern=r"^IR_RESUMEN_FINAL$"),
                 CallbackQueryHandler(manejar_edicion_desde_resumen_callback, pattern=r"^EDITAR_.*$"),
             ],
-            # ====== CORREGIR (cuando viene desde resumen final) ======
             "CORREGIR": [
                 CallbackQueryHandler(manejar_edicion_desde_resumen_callback, pattern=r"^EDITAR_.*$"),
                 MessageHandler(filters.ALL, lambda u, c: manejar_paso(u, c, c.user_data.get("registro", {}).get("PASO_ACTUAL", ""))),
             ],
-            # ====== RESUMEN FINAL ======
             "RESUMEN_FINAL": [
                 CallbackQueryHandler(resumen_final_callback, pattern=r"^FINAL_.*$"),
                 CallbackQueryHandler(manejar_edicion_desde_resumen_callback, pattern=r"^EDITAR_.*$"),
