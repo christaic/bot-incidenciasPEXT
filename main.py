@@ -448,7 +448,7 @@ PASOS = {
     },
     "FOTO_PUERTO": {
         "tipo": "foto",
-        "mensaje": "📸 Envía la *foto del puerto reportado sin potencia*:"",
+        "mensaje": "📸 Envía la *foto del puerto reportado sin potencia*:",
         "siguiente": "RESUMEN_FINAL",
     }
 }
