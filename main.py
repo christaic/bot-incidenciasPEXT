@@ -539,7 +539,7 @@ def obtener_ubicacion(lat, lng):
 # 📋 NUEVOS MENÚS DESPLEGABLES: TIPO DE CUADRILLA Y PUERTO
 # ============================================================
 async def mostrar_menu_tipo_cuadrilla(chat_id, context, query=None):
-    opciones = ["AVERIAS LIMA", "AVERIAS PROVINCIA", "POSTVENTA LIMA", "POSTVENTA PROVINCIA"]
+    opciones = ["AVERIAS ALTO VALOR", "AVERIAS PREFERENTE", "AVERIAS PROVINCIA", "POSTVENTA LIMA", "POSTVENTA PROVINCIA"]
     keyboard = [[InlineKeyboardButton(opc, callback_data=f"SET_TC_{opc}")] for opc in opciones]
     markup = InlineKeyboardMarkup(keyboard)
     texto = "👥 *Selecciona el Tipo de Cuadrilla:*"
