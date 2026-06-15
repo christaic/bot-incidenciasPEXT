@@ -66,9 +66,9 @@ ENCABEZADOS = [
 
 # AÑADIR DESPLEGABLE ALTERNATIVO
 OBS_REQUIERE_PUERTO = [
-    "CTO sin potencia", "CTO con potencia degradada", "CTO con puertos degradados", "CTO con puertos sin potencia",
-    "NAP sin potencia", "NAP con potencia degradada", "NAP con puertos degradados", "NAP con puertos sin potencia",
-    "FAT sin potencia", "FAT con potencia degradada", "FAT con puertos degradados", "FAT con puertos sin potencia"
+    "CTO sin potencia", "CTO con potencia degradada", "CTO con puertos degradados", "CTO con puertos sin potencia", "Pendiente de Instalación",
+    "NAP sin potencia", "NAP con potencia degradada", "NAP con puertos degradados", "NAP con puertos sin potencia", "Pendiente de Instalación",
+    "FAT sin potencia", "FAT con potencia degradada", "FAT con puertos degradados", "FAT con puertos sin potencia", "Pendiente de Instalación",
 ]
 
 
@@ -85,6 +85,7 @@ OBS_OPCIONES = {
         "CTO con degradación en OLT",
         "Trabajo en Conjunto",
         "Trabajo en Conjunto - Municipal",
+        "Pendiente de Instalación",
     ],
     "NAP": [
         "NAP sin potencia",
@@ -95,6 +96,7 @@ OBS_OPCIONES = {
         "NAP con intermitencia",
         "NAP con degradación en OLT",
         "Trabajo en Conjunto",
+        "Pendiente de Instalación",
     ],
     "FAT": [
         "FAT sin potencia",
@@ -105,6 +107,7 @@ OBS_OPCIONES = {
         "FAT con degradación en OLT",
         "Trabajo en Conjunto",
         "Trabajo en Conjunto - Municipal",
+        "Pendiente de Instalación",
     ],
 }
 
